@@ -1,0 +1,458 @@
+/* =========================
+   CSVXpressSmart — style.css (REV)
+   Fix: header leggibili, nessuna sovrapposizione, tabella stabile
+   ========================= */
+
+:root{
+  --bg:#f4f4f4;
+  --panel:#ffffff;
+  --text:#333;
+  --muted:#6b7280;
+  --brand:#2196f3;
+  --brand2:#1976d2;
+  --line:rgba(0,0,0,.12);
+  --soft:#f7fbff;
+}
+
+*{ box-sizing:border-box; }
+
+body{
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+header{
+  background-color: var(--brand);
+  color: #fff;
+  padding: 1em;
+  text-align: center;
+}
+
+.logo-container{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.logo{ height: 40px; width: 40px; }
+
+main{
+  padding: 1em;
+  max-width: 1200px;
+  margin: auto;
+  background-color: var(--panel);
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+section{ margin-bottom: 2em; }
+
+/* ====== Form controls ====== */
+input[type="file"],
+input[type="text"],
+input[type="number"],
+select,
+button{
+  display: block;
+  margin-top: 0.5em;
+  margin-bottom: 1em;
+  padding: 0.55em 0.6em;
+  width: 100%;
+  max-width: 520px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus{
+  outline: none;
+  border-color: rgba(33,150,243,.55);
+  box-shadow: 0 0 0 3px rgba(33,150,243,.15);
+}
+
+input[type="checkbox"]{ margin-right: 0.5em; }
+
+/* ====== Buttons ====== */
+button{
+  background-color: var(--brand);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s ease, transform .05s ease;
+}
+
+button:hover{ background-color: var(--brand2); }
+button:active{ transform: translateY(1px); }
+
+/* ====== Totali ====== */
+#totaleGenerale{
+  background-color: #f0f8ff;
+  border: 1px solid rgba(33,150,243,.55);
+  padding: 1em;
+  margin-bottom: 1em;
+  font-size: 1.05em;
+  line-height: 1.6;
+  border-radius: 10px;
+}
+
+/* =========================
+   SMART UI
+   ========================= */
+.smart-controls{
+  border: 1px solid rgba(33,150,243,.35);
+  background: var(--soft);
+  padding: 12px;
+  border-radius: 10px;
+  margin: 12px 0 18px;
+}
+
+.smart-controls h3{
+  margin: 0 0 10px;
+  font-size: 1.02em;
+}
+
+.smart-controls .chk{
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 8px 0;
+  max-width: 760px;
+}
+
+.smart-controls .chk input{ margin-top: 2px; }
+
+.smart-controls .vat-row{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 10px;
+}
+
+.smart-controls .vat-row label{
+  margin: 0;
+  white-space: nowrap;
+}
+
+.smart-controls .vat-row input{
+  max-width: 120px;
+  margin: 0;
+}
+
+.smart-controls .smart-info{
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(0,0,0,.15);
+}
+
+/* =========================
+   Tabella — FIX definitivo
+   ========================= */
+
+/* scroll orizzontale pulito */
+#articoli-section{
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* tabella: min-width evita “schiacciamento” che impasta l’header */
+#articoli-table{
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin: 0 auto;
+  background: #fff;
+}
+
+/* celle: niente sbordi, niente sovrapposizioni */
+#articoli-table th,
+#articoli-table td{
+  padding: 0.55em 0.6em;
+  border: 1px solid var(--line);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* HEADER: wrap controllato (questa è la chiave) */
+#articoli-table th{
+  background: rgba(33,150,243,.08);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.15;
+  text-align: center;
+
+  white-space: normal;      /* consenti a capo */
+  word-break: break-word;   /* spezza parole lunghe */
+  hyphens: auto;            /* se supportato */
+}
+
+/* BODY: numeri puliti e coerenti */
+#articoli-table td{
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap; /* evita numeri su due righe */
+}
+
+/* input: non deve mai “spingere” */
+#articoli-table td input{
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0.38em 0.45em;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,.18);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* testo: codice/descrizione a sinistra */
+#articoli-table td[data-col="codice"],
+#articoli-table td[data-col="descrizione"]{
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* prezzi/risultati a destra */
+#articoli-table td[data-col="prezzoLordo"],
+#articoli-table td[data-col="totaleNetto"],
+#articoli-table td[data-col="granTot"],
+#articoli-table td[data-col="venduto"],
+#articoli-table td[data-col="diff"]{
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* LARGHEZZE COLONNE (stabili con table-layout:fixed) */
+#articoli-table th[data-col="codice"],
+#articoli-table td[data-col="codice"]{ width: 110px; }
+
+#articoli-table th[data-col="descrizione"],
+#articoli-table td[data-col="descrizione"]{ width: 330px; }
+
+#articoli-table th[data-col="prezzoLordo"],
+#articoli-table td[data-col="prezzoLordo"]{ width: 120px; }
+
+/* sconti / margine / sconto cliente */
+#articoli-table th[data-col="sconto1"],
+#articoli-table td[data-col="sconto1"]{ width: 78px; }
+
+#articoli-table th[data-col="sconto2"],
+#articoli-table td[data-col="sconto2"]{ width: 78px; }
+
+#articoli-table th[data-col="margine"],
+#articoli-table td[data-col="margine"]{ width: 90px; }
+
+#articoli-table th[data-col="scontoCliente"],
+#articoli-table td[data-col="scontoCliente"]{ width: 95px; }
+
+#articoli-table th[data-col="totaleNetto"],
+#articoli-table td[data-col="totaleNetto"]{ width: 95px; }
+
+#articoli-table th[data-col="trasporto"],
+#articoli-table td[data-col="trasporto"]{ width: 95px; }
+
+#articoli-table th[data-col="installazione"],
+#articoli-table td[data-col="installazione"]{ width: 85px; }
+
+#articoli-table th[data-col="qta"],
+#articoli-table td[data-col="qta"]{ width: 70px; }
+
+#articoli-table th[data-col="granTot"],
+#articoli-table td[data-col="granTot"]{ width: 110px; }
+
+#articoli-table th[data-col="venduto"],
+#articoli-table td[data-col="venduto"]{ width: 110px; }
+
+#articoli-table th[data-col="diff"],
+#articoli-table td[data-col="diff"]{ width: 95px; }
+
+#articoli-table th[data-col="azioni"],
+#articoli-table td[data-col="azioni"]{ width: 80px; }
+
+/* pulsante azioni */
+#articoli-table td[data-col="azioni"] button{
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0.42em 0.55em;
+}
+
+/* =========================
+   Utility
+   ========================= */
+.col-hidden{ display: none !important; }
+.muted{ color: var(--muted); }
+
+/* Mobile */
+@media (max-width: 720px){
+  main{ padding: 12px; }
+  input[type="file"],
+  input[type="text"],
+  input[type="number"],
+  select,
+  button{ max-width: 100%; }
+
+  /* su mobile mantieni comunque scorrimento */
+  #articoli-table{ min-width: 980px; }
+}
+
+/* =========================
+   MOBILE / iPhone 13 mini + Android — Patch (non rompe la logica)
+   Obiettivi:
+   - più leggibile su schermi piccoli
+   - tap target più comodi
+   - niente zoom iOS sugli input
+   - tabella: header sticky + prime colonne sticky + hint scroll
+   ========================= */
+
+/* Tipografia fluida (senza stravolgere desktop) */
+h1, h2{
+  letter-spacing: -0.01em;
+}
+h1{ font-size: clamp(28px, 5.2vw, 44px); }
+h2{ font-size: clamp(22px, 4.3vw, 34px); }
+
+/* Safe area (notch) */
+header{
+  padding-top: calc(1em + env(safe-area-inset-top));
+  padding-left: calc(1em + env(safe-area-inset-left));
+  padding-right: calc(1em + env(safe-area-inset-right));
+}
+
+/* Desktop/tablet: un filo più “denso” */
+@media (min-width: 721px){
+  body{ font-size: 15px; }
+  button{ padding: 0.55em 0.75em; }
+}
+
+/* MOBILE */
+@media (max-width: 720px){
+  body{
+    font-size: 16px; /* evita zoom iOS */
+    background: var(--bg);
+  }
+
+  main{
+    max-width: 100%;
+    margin: 0;
+    padding: 12px;
+    border-radius: 0;
+    box-shadow: none; /* più spazio utile */
+    background: var(--panel);
+  }
+
+  section{ margin-bottom: 18px; }
+
+  /* Bottoni: più alti e leggibili */
+  button{
+    min-height: 46px;
+    border-radius: 12px;
+    font-size: 16px;
+  }
+
+  /* Input: evita zoom iOS + area di tocco */
+  input[type="text"],
+  input[type="number"],
+  select{
+    min-height: 44px;
+    font-size: 16px; /* evita zoom iOS */
+  }
+
+  input[type="file"]{
+    font-size: 16px;
+  }
+
+  /* Box totali più compatto */
+  #totaleGenerale{
+    font-size: 15px;
+    line-height: 1.45;
+    padding: 12px;
+  }
+
+  /* Hint per scroll orizzontale della tabella */
+  #articoli-section{
+    position: relative;
+    padding-top: 26px; /* spazio per il hint */
+  }
+  #articoli-section::before{
+    content: "⇆ Scorri la tabella";
+    position: absolute;
+    top: 6px;
+    left: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    background: rgba(255,255,255,.85);
+    border: 1px solid rgba(0,0,0,.08);
+    padding: 4px 8px;
+    border-radius: 999px;
+    backdrop-filter: blur(6px);
+  }
+
+  /* Tabella: riduco un po’ la min-width per iPhone 13 mini */
+  #articoli-table{
+    min-width: 920px;
+  }
+
+  /* Header sticky (dentro lo scroll orizzontale) */
+  #articoli-table thead th{
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: rgba(33,150,243,.12);
+  }
+
+  /* Prime colonne sticky (codice + descrizione) */
+  #articoli-table th[data-col="codice"],
+  #articoli-table td[data-col="codice"]{
+    position: sticky;
+    left: 0;
+    z-index: 6;
+    background: #fff;
+  }
+  #articoli-table th[data-col="descrizione"],
+  #articoli-table td[data-col="descrizione"]{
+    position: sticky;
+    left: 110px; /* = width codice */
+    z-index: 6;
+    background: #fff;
+  }
+
+  /* Se vuoi anche la colonna Azioni sempre visibile a destra */
+  #articoli-table th[data-col="azioni"],
+  #articoli-table td[data-col="azioni"]{
+    position: sticky;
+    right: 0;
+    z-index: 6;
+    background: #fff;
+  }
+
+  /* Header delle colonne sticky deve “stare sopra” alle celle sticky */
+  #articoli-table thead th[data-col="codice"],
+  #articoli-table thead th[data-col="descrizione"],
+  #articoli-table thead th[data-col="azioni"]{
+    z-index: 7;
+    background: rgba(33,150,243,.16);
+  }
+
+  /* Celle: un filo più compatte */
+  #articoli-table th,
+  #articoli-table td{
+    padding: 0.5em 0.55em;
+  }
+  #articoli-table td{
+    font-size: 13px;
+  }
+  #articoli-table td input{
+    min-height: 38px;
+    font-size: 16px; /* evita zoom iOS anche in tabella */
+  }
+}
+

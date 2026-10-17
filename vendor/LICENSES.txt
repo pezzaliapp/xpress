@@ -1,0 +1,26 @@
+Librerie di terze parti incluse in Xpress
+========================================
+
+Sono servite localmente (nessuna CDN, nessuna richiesta esterna).
+
+1) PapaParse 5.3.2 — parsing CSV
+   File: vendor/papaparse.min.js
+   Licenza: MIT
+   Copyright (c) 2015 Matthew Holt
+   https://github.com/mholt/PapaParse/blob/master/LICENSE
+   (l'intestazione di licenza è conservata nel file minificato)
+
+2) SheetJS Community Edition (xlsx) — lettura Excel .xlsx / .xlsm / .xls
+   File: vendor/xlsx.full.min.js
+   Licenza: Apache License 2.0
+   Copyright (C) 2012-present SheetJS LLC
+   https://github.com/SheetJS/sheetjs/blob/master/LICENSE
+   Testo completo della licenza: https://www.apache.org/licenses/LICENSE-2.0
+
+3) PDF.js 3.11.174 (Mozilla) — lettura del listino PDF e ritaglio immagini
+   File: vendor/pdfjs/pdf.min.js, vendor/pdfjs/pdf.worker.min.js (build "legacy")
+   Licenza: Apache License 2.0 — testo completo in vendor/pdfjs/LICENSE
+   https://github.com/mozilla/pdf.js
+
+Xpress (derivato da CSVXpressSmart) è distribuito con licenza MIT — vedi il file LICENSE.
+Autore: Alessandro Pezzali — https://www.alessandropezzali.it

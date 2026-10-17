@@ -1,0 +1,266 @@
+
+/* =========================================================
+   MOBILE: Tabella -> "Card per riga" (verticale)
+   Obiettivo:
+   - su iPhone/Samsung NON serve ruotare lo schermo
+   - ogni riga diventa una scheda verticale con etichette
+   - nessuna modifica alla logica JS (solo CSS)
+   Nota: questa sezione va in FONDO al CSS così sovrascrive
+   ========================================================= */
+
+@media (max-width: 720px){
+
+  /* Su mobile non serve più lo scroll orizzontale della tabella */
+  #articoli-section{
+    overflow-x: visible;
+    padding-top: 0;
+  }
+  #articoli-section::before{
+    content: none !important;
+  }
+
+  /* Tabella “spenta” come tabella: diventa lista di cards */
+  #articoli-table{
+    /* ✅ La scatola tabella va spenta davvero: una box `display:table` usa
+       max(width, min-content) e NON è limitata dal contenitore, quindi
+       `width:100%` farebbe solo da minimo. Con la min-content della riga a
+       343px (etichetta 105 + gap 12 + larghezza intrinseca dell'input 192),
+       su schermi da 341-352px (display esterno del Galaxy Fold) la scheda
+       usciva dallo schermo e veniva ritagliata. Da `block` in poi la
+       larghezza torna vincolata al contenitore e gli input si adattano. */
+    display: block !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: auto !important;
+    background: transparent;
+    border: 0;
+  }
+
+  #articoli-table thead{
+    display: none !important; /* nascondo header: le etichette le metto in ogni cella */
+  }
+
+  #articoli-table tbody{
+    display: block;
+  }
+
+  /* ✅ FIX: in modalità "card" le larghezze fisse per colonna della vista
+     tabella (es. descrizione 330px) non devono più valere, altrimenti la
+     scheda diventa più larga dello schermo e il contenuto viene tagliato. */
+  #articoli-table th,
+  #articoli-table td{
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  #articoli-table tr{
+    display: block;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 10px 10px 6px;
+    margin: 10px 0;
+    box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  }
+
+  #articoli-table td{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    border: 0 !important;
+    padding: 8px 6px;
+    white-space: normal !important;
+    text-overflow: clip;
+    overflow: visible;
+  }
+
+  /* Riga separatore soft */
+  #articoli-table td + td{
+    border-top: 1px dashed rgba(0,0,0,.08) !important;
+  }
+
+  /* Etichetta a sinistra (presa dall’indice colonna) */
+  #articoli-table td::before{
+    font-weight: 700;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.15;
+    flex: 0 0 115px; /* spazio fisso label */
+  }
+
+  /* Valore a destra */
+  #articoli-table td{
+    font-size: 14px !important;
+    line-height: 1.25;
+  }
+
+  /* Input: comodi da toccare + niente zoom iOS */
+  #articoli-table td input,
+  #articoli-table td select{
+    min-height: 40px;
+    font-size: 16px !important; /* evita zoom iOS */
+    margin: 0 !important;
+    width: min(200px, 55vw);
+  }
+
+  /* Descrizione: può andare su 2 righe */
+  #articoli-table td[data-col="descrizione"]{
+    align-items: flex-start;
+  }
+  #articoli-table td[data-col="descrizione"]{
+    white-space: normal !important;
+  }
+
+  /* Pulsante azioni */
+  #articoli-table td[data-col="azioni"]{
+    justify-content: flex-end;
+    border-top: 0 !important;
+    padding-top: 10px;
+  }
+  #articoli-table td[data-col="azioni"]::before{
+    content: "" !important;
+    /* ✅ senza !important questa regola, pur più specifica, perdeva contro
+       `#articoli-table td::before{ flex: 0 0 120px !important }` (e 105px
+       sotto i 380px): la cella azioni si teneva una colonna-etichetta vuota
+       e il pulsante Rimuovi partiva spostato a destra. */
+    flex: 0 0 0 !important;
+  }
+  #articoli-table td[data-col="azioni"] button{
+    width: 100%;
+    min-height: 44px;
+    border-radius: 12px;
+  }
+
+  /* ---------- Mapping etichette per colonna (nth-child) ---------- */
+  #articoli-table td:nth-child(1)::before { content: "Codice"; }
+  #articoli-table td:nth-child(2)::before { content: "Descrizione"; }
+  #articoli-table td:nth-child(3)::before { content: "P. Lordo"; }
+  #articoli-table td:nth-child(4)::before { content: "Sc.1 %"; }
+  #articoli-table td:nth-child(5)::before { content: "Sc.2 %"; }
+  #articoli-table td:nth-child(6)::before { content: "Sc. Cliente %"; }
+  #articoli-table td:nth-child(7)::before { content: "Margine %"; }
+  #articoli-table td:nth-child(8)::before { content: "Totale"; }
+  #articoli-table td:nth-child(9)::before { content: "Trasporto"; }
+  #articoli-table td:nth-child(10)::before{ content: "Installazione"; }
+  #articoli-table td:nth-child(11)::before{ content: "Qtà"; }
+  #articoli-table td:nth-child(12)::before{ content: "Tot. riga"; }
+  #articoli-table td:nth-child(13)::before{ content: "Vend. €"; }
+  #articoli-table td:nth-child(14)::before{ content: "Diff."; }
+  #articoli-table td:nth-child(15)::before{ content: ""; } /* Azioni (gestita sopra) */
+
+  /* Disattivo sticky columns/thead se rimaste da patch precedenti */
+  #articoli-table th,
+  #articoli-table td{
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+  }
+}
+
+
+/* --- Tweak: input più larghi nelle card (mobile) --- */
+@media (max-width: 720px){
+  /* più spazio al "valore" rispetto all'etichetta */
+  #articoli-table td::before{
+    flex: 0 0 130px; /* etichetta stabile */
+  }
+
+  /* i campi devono occupare quasi tutta la parte destra */
+  #articoli-table td input,
+  #articoli-table td select{
+    width: min(78vw, 340px) !important;   /* più largo: 60 si vede */
+    max-width: none !important;
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* allineamento generale della riga */
+  #articoli-table td{
+    justify-content: space-between;
+  }
+}
+
+
+/* --- V3: input equilibrati (mobile) + niente overflow a destra --- */
+@media (max-width: 720px){
+  /* card: garantisce che nulla esca dal bordo */
+  #articoli-table tr{ overflow: hidden; }
+
+  /* etichetta un filo più stretta */
+  #articoli-table td::before{
+    flex: 0 0 120px !important;
+  }
+
+  /* input: abbastanza larghi da vedere 60/320/390, ma non “sparano” fuori */
+  #articoli-table td input,
+  #articoli-table td select{
+    width: clamp(150px, 52vw, 230px) !important; /* ✅ bilanciato */
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* schermi davvero piccoli (iPhone mini/SE): priorità al valore */
+@media (max-width: 380px){
+  #articoli-table td::before{ flex-basis: 105px !important; }
+  #articoli-table td input,
+  #articoli-table td select{
+    width: clamp(140px, 58vw, 215px) !important;
+  }
+}
+
+/* --- V4: i campi si ADATTANO allo spazio della card ---
+   Le larghezze fisse (clamp in vw) non potevano restringersi e su schermi
+   da ~360px facevano uscire la scheda dallo schermo: ora l'input occupa
+   lo spazio che resta dopo l'etichetta, senza mai sfondare. */
+@media (max-width: 720px){
+  #articoli-table td input,
+  #articoli-table td select{
+    flex: 1 1 auto;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 230px !important;
+  }
+}
+
+/* --- V4: schermi strettissimi (Galaxy Fold chiuso ~280px, display split) ---
+   Sotto i 340px etichetta e valore vanno su due righe: così nessun campo
+   può uscire dalla card (che ha overflow:hidden) e resta tutto toccabile. */
+@media (max-width: 340px){
+  #articoli-table td{
+    display: block !important;
+    padding: 8px 4px;
+  }
+
+  #articoli-table td::before{
+    display: block;
+    flex: none !important;
+    flex-basis: auto !important;
+    margin-bottom: 4px;
+  }
+
+  #articoli-table td input,
+  #articoli-table td select{
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 44px;
+  }
+
+  #articoli-table td[data-col="azioni"] button{
+    width: 100%;
+  }
+
+  #articoli-table tr{
+    padding: 8px 8px 4px;
+  }
+}
+
+

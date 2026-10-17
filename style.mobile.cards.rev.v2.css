@@ -1,0 +1,168 @@
+
+/* =========================================================
+   MOBILE: Tabella -> "Card per riga" (verticale)
+   Obiettivo:
+   - su iPhone/Samsung NON serve ruotare lo schermo
+   - ogni riga diventa una scheda verticale con etichette
+   - nessuna modifica alla logica JS (solo CSS)
+   Nota: questa sezione va in FONDO al CSS così sovrascrive
+   ========================================================= */
+
+@media (max-width: 720px){
+
+  /* Su mobile non serve più lo scroll orizzontale della tabella */
+  #articoli-section{
+    overflow-x: visible;
+    padding-top: 0;
+  }
+  #articoli-section::before{
+    content: none !important;
+  }
+
+  /* Tabella “spenta” come tabella: diventa lista di cards */
+  #articoli-table{
+    min-width: 0 !important;
+    width: 100% !important;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: auto !important;
+    background: transparent;
+    border: 0;
+  }
+
+  #articoli-table thead{
+    display: none !important; /* nascondo header: le etichette le metto in ogni cella */
+  }
+
+  #articoli-table tbody{
+    display: block;
+  }
+
+  #articoli-table tr{
+    display: block;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 10px 10px 6px;
+    margin: 10px 0;
+    box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  }
+
+  #articoli-table td{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    border: 0 !important;
+    padding: 8px 6px;
+    white-space: normal !important;
+    text-overflow: clip;
+    overflow: visible;
+  }
+
+  /* Riga separatore soft */
+  #articoli-table td + td{
+    border-top: 1px dashed rgba(0,0,0,.08) !important;
+  }
+
+  /* Etichetta a sinistra (presa dall’indice colonna) */
+  #articoli-table td::before{
+    font-weight: 700;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.15;
+    flex: 0 0 115px; /* spazio fisso label */
+  }
+
+  /* Valore a destra */
+  #articoli-table td{
+    font-size: 14px !important;
+    line-height: 1.25;
+  }
+
+  /* Input: comodi da toccare + niente zoom iOS */
+  #articoli-table td input,
+  #articoli-table td select{
+    min-height: 40px;
+    font-size: 16px !important; /* evita zoom iOS */
+    margin: 0 !important;
+    width: min(200px, 55vw);
+  }
+
+  /* Descrizione: può andare su 2 righe */
+  #articoli-table td[data-col="descrizione"]{
+    align-items: flex-start;
+  }
+  #articoli-table td[data-col="descrizione"]{
+    white-space: normal !important;
+  }
+
+  /* Pulsante azioni */
+  #articoli-table td[data-col="azioni"]{
+    justify-content: flex-end;
+    border-top: 0 !important;
+    padding-top: 10px;
+  }
+  #articoli-table td[data-col="azioni"]::before{
+    content: "" !important;
+    flex: 0 0 0;
+  }
+  #articoli-table td[data-col="azioni"] button{
+    width: 100%;
+    min-height: 44px;
+    border-radius: 12px;
+  }
+
+  /* ---------- Mapping etichette per colonna (nth-child) ---------- */
+  #articoli-table td:nth-child(1)::before { content: "Codice"; }
+  #articoli-table td:nth-child(2)::before { content: "Descrizione"; }
+  #articoli-table td:nth-child(3)::before { content: "P. Lordo"; }
+  #articoli-table td:nth-child(4)::before { content: "Sc.1 %"; }
+  #articoli-table td:nth-child(5)::before { content: "Sc.2 %"; }
+  #articoli-table td:nth-child(6)::before { content: "Sc. Cliente %"; }
+  #articoli-table td:nth-child(7)::before { content: "Margine %"; }
+  #articoli-table td:nth-child(8)::before { content: "Totale"; }
+  #articoli-table td:nth-child(9)::before { content: "Trasporto"; }
+  #articoli-table td:nth-child(10)::before{ content: "Installazione"; }
+  #articoli-table td:nth-child(11)::before{ content: "Qtà"; }
+  #articoli-table td:nth-child(12)::before{ content: "Tot. riga"; }
+  #articoli-table td:nth-child(13)::before{ content: "Vend. €"; }
+  #articoli-table td:nth-child(14)::before{ content: "Diff."; }
+  #articoli-table td:nth-child(15)::before{ content: ""; } /* Azioni (gestita sopra) */
+
+  /* Disattivo sticky columns/thead se rimaste da patch precedenti */
+  #articoli-table th,
+  #articoli-table td{
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+  }
+}
+
+
+/* --- Tweak: input più larghi nelle card (mobile) --- */
+@media (max-width: 720px){
+  /* più spazio al "valore" rispetto all'etichetta */
+  #articoli-table td::before{
+    flex: 0 0 130px; /* etichetta stabile */
+  }
+
+  /* i campi devono occupare quasi tutta la parte destra */
+  #articoli-table td input,
+  #articoli-table td select{
+    width: min(78vw, 340px) !important;   /* più largo: 60 si vede */
+    max-width: none !important;
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* allineamento generale della riga */
+  #articoli-table td{
+    justify-content: space-between;
+  }
+}
+

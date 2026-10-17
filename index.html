@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+
+<html data-app="Xpress" data-ver="2.0.0" lang="it">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Xpress</title>
+  <meta name="description" content="Preventivi e ordini rapidi da listini CSV o Excel, con immagini dal listino PDF. Sconti, margini, trasporto e installazione. Tutti i dati restano sul dispositivo."/>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#2196f3"/>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="style.mobile.cards.rev.v3.css"/>
+  <link rel="stylesheet" href="xpress.css"/>
+
+  <!-- ✅ micro-fix minimi (il grosso sta in style.css) -->
+  <style>
+    /* Nasconde colonne via class col-hidden (app.js) */
+    .col-hidden{display:none !important}
+
+    /* Report: preserva a capo e spazi */
+    .report-preview{
+      white-space:pre-wrap;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,
+                   "Liberation Mono","Courier New",monospace;
+    }
+
+    /* Accessibilità: testo solo per screen reader */
+    .sr-only{
+      position:absolute!important;
+      width:1px;height:1px;
+      padding:0;margin:-1px;
+      overflow:hidden;
+      clip:rect(0,0,0,0);
+      white-space:nowrap;
+      border:0
+    }
+  </style>
+
+<meta content="yes" name="apple-mobile-web-app-capable"/><meta content="yes" name="mobile-web-app-capable"/><meta content="default" name="apple-mobile-web-app-status-bar-style"/><meta content="Xpress" name="apple-mobile-web-app-title"/><meta content="telephone=no" name="format-detection"/><link href="icon/CSVXpressSmart-1024.png" rel="apple-touch-icon"/><link href="icon/CSVXpressSmart-192.png" rel="icon" sizes="192x192" type="image/png"/><link href="icon/CSVXpressSmart-512.png" rel="icon" sizes="512x512" type="image/png"/></head>
+<body>
+<header data-zone="header">
+<div class="logo-container">
+<img alt="Xpress Logo" class="logo" src="icon/CSVXpressSmart-1024.png"/>
+<h1>Xpress</h1>
+</div>
+</header>
+<main><p class="sr-only" id="deviceHint">Su smartphone ogni riga è visualizzata come scheda verticale.</p>
+<section data-zone="upload_csv" id="upload-section">
+<h2>Carica Listino CSV o Excel</h2>
+<input accept=".csv,.txt,.xlsx,.xlsm,.xls,text/csv,text/plain,text/comma-separated-values,application/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12" aria-label="Seleziona file CSV o Excel" id="csvFileInput" type="file"/>
+<p class="muted" id="csvLoadStatus" style="display:none; margin:6px 0; font-size:14px;"></p>
+<p id="csvError" style="color: red; display: none;">Errore nel caricamento del file CSV.</p>
+<!-- ✅ Memoria CSV (IndexedDB via app.js) -->
+<div class="csv-memory" id="csv-memory" style="margin-top:12px;">
+<h3 style="margin:0 0 6px 0;">Memoria CSV</h3>
+<label class="chk" style="display:block; margin:6px 0;">
+<input checked="" id="toggleRememberCSV" type="checkbox"/>
+          Ricorda l’ultimo CSV (non dovrai ricaricarlo ad ogni apertura)
+        </label>
+<div class="csv-memory-actions" style="display:flex; gap:8px; flex-wrap:wrap; margin:8px 0;">
+<button id="btnLoadSavedCSV" type="button">Carica CSV salvato</button>
+<button id="btnClearSavedCSV" type="button">Cancella CSV salvato</button>
+</div>
+<div class="muted" id="savedCsvInfo" style="opacity:.8; font-size:13px;">
+          Nessun CSV salvato.
+        </div>
+</div>
+<!-- /Memoria CSV -->
+</section>
+<section data-zone="upload_pdf" id="pdf-section">
+<h2>Carica Listino PDF (immagini)</h2>
+<p class="muted xp-note">Il PDF resta solo su questo dispositivo: non viene mai inviato a nessun server. Le immagini degli articoli vengono mostrate accanto al codice e nelle stampe.</p>
+<input accept=".pdf,application/pdf" aria-label="Seleziona listino PDF" id="pdfFileInput" type="file"/>
+<p class="muted" id="pdfLoadStatus" style="display:none; margin:6px 0; font-size:14px;"></p>
+<div class="csv-memory" id="pdf-memory" style="margin-top:12px;">
+<h3 style="margin:0 0 6px 0;">Memoria PDF</h3>
+<label class="chk" style="display:block; margin:6px 0;">
+<input checked="" id="toggleRememberPDF" type="checkbox"/>
+          Ricorda il listino PDF su questo dispositivo
+        </label>
+<div class="csv-memory-actions" style="display:flex; gap:8px; flex-wrap:wrap; margin:8px 0;">
+<button id="btnClearSavedPDF" type="button">Rimuovi listino PDF</button>
+</div>
+<div class="muted" id="savedPdfInfo" style="opacity:.8; font-size:13px;">Nessun listino PDF caricato.</div>
+</div>
+</section>
+<section data-zone="selezione_listino" id="listino-section">
+<h2>Filtra e Seleziona Articolo dal Listino</h2>
+<label for="searchListino">Cerca: </label>
+<input id="searchListino" placeholder="Inserisci codice o descrizione" type="text"/>
+<select id="listinoSelect"></select>
+<button id="btnAddFromListino" onclick="aggiungiArticoloDaListino()">Aggiungi Articolo</button>
+<div class="xp-preview" id="pdfPreview" hidden=""></div>
+</section>
+<section data-zone="tabella_articoli" id="articoli-section">
+<h2>Articoli Aggiunti</h2>
+<!-- CONTROLLI SMART -->
+<div class="smart-controls" id="smart-controls">
+<h3>Modalità Preventivo / Ordine (Smart)</h3>
+<label class="chk">
+<input id="toggleSmartMode" type="checkbox"/>
+          Modalità Cliente (Smart)
+        </label>
+<label class="chk">
+<input id="toggleShowVAT" type="checkbox"/>
+          Mostra IVA
+        </label>
+<div class="vat-row">
+<label for="vatRate">IVA %</label>
+<input autocomplete="off" id="vatRate" inputmode="decimal" spellcheck="false" type="text" value="22"/>
+</div>
+<label class="chk">
+<input id="toggleHideVenduto" type="checkbox"/>
+          Ometti “Vend.€”
+        </label>
+<label class="chk">
+<input id="toggleHideDiff" type="checkbox"/>
+          Ometti “Diff.”
+        </label>
+<label class="chk">
+<input id="toggleHideDiscounts" type="checkbox"/>
+          Ometti Sc.1/Sc.2 nel report
+        </label>
+<!-- ✅ FLAG: attiva la modalità "Sconto Cliente" -->
+<label class="chk">
+<input id="toggleShowClientDiscount" type="checkbox"/>
+          Attiva “Sc.Cliente” (sostituisce Sc.1/Sc.2 + Marg.% a prezzo invariato)
+        </label>
+<div class="smart-info">
+<strong>Sconto eq. cliente:</strong>
+<span id="smartEquivalentDiscount">—</span>
+</div>
+</div>
+<table border="1" id="articoli-table">
+<thead>
+<tr>
+<th data-col="codice" title="Codice">Codice</th>
+<th data-col="descrizione" title="Descrizione">Descrizione</th>
+<th data-col="prezzoLordo" title="Prezzo Lordo">P. Lordo</th>
+<th data-col="sconto1" title="Sconto 1%">Sc.1%</th>
+<th data-col="sconto2" title="Sconto 2%">Sc.2%</th>
+<!-- ✅ NEW -->
+<th data-col="scontoCliente" title="Sconto cliente %">Sc.Cliente%</th>
+<th data-col="margine" title="Margine %">Marg.%</th>
+<th data-col="totaleNetto" title="Totale">Totale</th>
+<th data-col="trasporto" title="Trasporto">Trasp.</th>
+<th data-col="installazione" title="Installazione">Inst.</th>
+<th data-col="qta" title="Quantità">Qtà</th>
+<th data-col="granTot" title="Gran Totale">Tot.</th>
+<th data-col="venduto" title="Venduto A €">Vend.€</th>
+<th data-col="diff" title="Differenza sconto">Diff.</th>
+<th data-col="azioni" title="Azioni">Az.</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</section>
+<section data-zone="report_export" id="report-section">
+<h2>Report Articoli</h2><div class="report-actions"><button id="btnWA" onclick="inviaReportWhatsApp()">Invia WhatsApp</button><button id="btnTXT" onclick="generaPDFReport()">Genera TXT</button></div><div class="report-actions report-actions--secondary"><button id="btnWASenzaMargine" onclick="inviaReportWhatsAppSenzaMargine()">WA (No Marg.)</button><button id="btnTXTSenzaMargine" onclick="generaTXTReportSenzaMargine()">TXT (No Marg.)</button></div><div class="report-actions report-actions--print"><button id="btnPrint" type="button">Stampa / PDF con immagini</button><button id="btnPrintSenzaMargine" type="button">Stampa (No Marg.)</button></div>
+<div class="report-preview" id="reportPreview" style="margin-top:14px; display:none;"></div>
+</section>
+</main>
+<!-- Xpress: visualizzatore immagine articolo -->
+<div aria-modal="true" class="xp-lightbox" hidden="" id="xpLightbox" role="dialog">
+<div class="xp-lightbox-box">
+<button aria-label="Chiudi" class="xp-lightbox-close" id="xpLightboxClose" type="button">✕</button>
+<img alt="" id="xpLightboxImg"/>
+<div class="xp-lightbox-bar"><span id="xpLightboxCap"></span><button id="xpLightboxPage" type="button">Vedi pagina intera</button></div>
+</div>
+</div>
+<!-- Librerie necessarie — servite localmente: nessuna richiesta a servizi esterni -->
+<!-- PapaParse 5.3.2 (MIT) per CSV -->
+<script defer="" src="vendor/papaparse.min.js"></script>
+<!-- SheetJS per import Excel -->
+<script defer="" src="vendor/xlsx.full.min.js"></script>
+<!-- pdf.js 3.11.174 (Apache-2.0) per il listino PDF: servito localmente -->
+<script defer="" src="vendor/pdfjs/pdf.min.js"></script>
+<script defer="" src="pdf-listino.js"></script>
+<!-- Nessun analytics, nessun tracker, nessuna telemetria. -->
+<noscript>
+<p style="padding:1em;color:#b71c1c">
+      Xpress richiede JavaScript attivo. Tutti i calcoli avvengono nel browser, sul tuo dispositivo.
+    </p>
+</noscript>
+<!-- App -->
+<script defer="" src="app.js"></script>
+</body>
+</html>

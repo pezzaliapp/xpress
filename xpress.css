@@ -1,0 +1,182 @@
+/* =========================================================
+   Xpress — stili aggiuntivi per il listino PDF con immagini
+   (lo stile originale di CSVXpressSmart resta invariato)
+   ========================================================= */
+
+.xp-note{ font-size: 13px; margin: 0 0 8px; }
+
+/* Codice + miniatura nella colonna "Codice" */
+.xp-code{
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.xp-code-txt{ word-break: break-all; }
+
+.xp-thumb{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  padding: 2px !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  cursor: zoom-in;
+  overflow: hidden;
+  box-shadow: none !important;
+  flex: 0 0 auto;
+}
+.xp-thumb[hidden]{ display: none !important; }
+.xp-thumb img{
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.xp-thumb--loading{
+  background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%) !important;
+  background-size: 200% 100% !important;
+  animation: xp-shimmer 1.1s linear infinite;
+}
+@keyframes xp-shimmer{ from{ background-position: 200% 0; } to{ background-position: -200% 0; } }
+
+/* Anteprima articolo selezionato dal listino */
+.xp-preview{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0 4px;
+}
+.xp-preview[hidden]{ display: none; }
+.xp-thumb.xp-thumb--big{ width: 120px; height: 120px; }
+.xp-preview-cap{ font-size: 13px; color: var(--muted); }
+
+/* Mobile (card): codice e immagine a destra dell'etichetta */
+@media (max-width: 720px){
+  #articoli-table td[data-col="codice"] .xp-code{ align-items: flex-end; text-align: right; }
+  .xp-thumb{ width: 84px; height: 84px; }
+}
+
+/* Visualizzatore immagine */
+.xp-lightbox{
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, .72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.xp-lightbox[hidden]{ display: none; }
+.xp-lightbox-box{
+  position: relative;
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+  max-width: min(96vw, 900px);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.35);
+}
+.xp-lightbox-box img{
+  max-width: 100%;
+  max-height: calc(92vh - 90px);
+  min-width: 120px;
+  min-height: 120px;
+  object-fit: contain;
+  align-self: center;
+}
+.xp-lightbox-bar{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+.xp-lightbox-bar button{ margin: 0; min-height: 40px; }
+.xp-lightbox-close{
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 36px;
+  height: 36px;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 50% !important;
+  font-size: 16px;
+  line-height: 1;
+}
+body.xp-noscroll{ overflow: hidden; }
+
+/* Area di stampa (fuori schermo finché non si stampa) */
+#xpPrintArea{ display: none; }
+
+@media print{
+  @page{ margin: 12mm; }
+
+  body.xp-printing{ background: #fff !important; }
+  body.xp-printing > *:not(#xpPrintArea){ display: none !important; }
+  body.xp-printing #xpPrintArea{ display: block !important; }
+
+  #xpPrintArea{
+    font-family: Arial, Helvetica, sans-serif;
+    color: #111;
+    font-size: 11pt;
+  }
+  #xpPrintArea pre{
+    margin: 0;
+    white-space: pre-wrap;
+    font-family: inherit;
+    font-size: 10.5pt;
+    line-height: 1.4;
+  }
+  .xp-print-head{
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 2px solid #111;
+    padding-bottom: 4mm;
+    margin-bottom: 4mm;
+  }
+  .xp-print-title{ font-size: 15pt; font-weight: 700; }
+  .xp-print-date{ font-size: 10pt; color: #444; }
+  .xp-print-row{
+    display: flex;
+    gap: 6mm;
+    align-items: flex-start;
+    padding: 4mm 0;
+    border-bottom: 1px solid #ccc;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .xp-print-pic{
+    flex: 0 0 38mm;
+    width: 38mm;
+    height: 38mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .xp-print-pic img{ max-width: 38mm; max-height: 38mm; object-fit: contain; }
+  .xp-print-tot{
+    margin-top: 6mm !important;
+    font-weight: 700;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+/* i pulsanti dell'app hanno display esplicito: [hidden] va forzato */
+.xp-lightbox button[hidden]{ display: none !important; }
