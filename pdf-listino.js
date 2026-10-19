@@ -28,7 +28,7 @@
   const KEY_META = 'last_pdf_meta';
   const KEY_INDEX = 'last_pdf_index';
   const REMEMBER_KEY = 'xpress_remember_pdf_v1';
-  const INDEX_VERSION = 5; // bump se cambia l'algoritmo di indicizzazione
+  const INDEX_VERSION = 9; // bump se cambia l'algoritmo di indicizzazione
 
   let dbPromise = null;
 
@@ -249,10 +249,45 @@
     const stack = [];
     let ctm = [1, 0, 0, 1, 0, 0];
     const boxes = [];
+    const vec = [];            // forme vettoriali piene (icone disegnate)
+    let pendingPath = null;    // ultimo tracciato costruito, in attesa di riempimento
+    let fillWhite = false;     // colore di riempimento corrente bianco/quasi bianco
+    const FILL_OPS = new Set([OPS.fill, OPS.eoFill, OPS.fillStroke, OPS.eoFillStroke,
+      OPS.closeFillStroke, OPS.closeEOFillStroke].filter(v => v !== undefined));
+
+    const isWhiteColor = (a) => {
+      try {
+        let r, g, b;
+        if (typeof a?.[0] === 'string' && a[0][0] === '#') {
+          const h = a[0]; r = parseInt(h.substr(1, 2), 16); g = parseInt(h.substr(3, 2), 16); b = parseInt(h.substr(5, 2), 16);
+        } else if (Array.isArray(a) && a.length >= 3) { [r, g, b] = a.map(v => v <= 1 ? v * 255 : v); }
+        else return false;
+        return r > 235 && g > 235 && b > 235;
+      } catch (_) { return false; }
+    };
 
     for (let i = 0; i < ops.fnArray.length; i++) {
       const fn = ops.fnArray[i];
       const args = ops.argsArray[i];
+      if (fn === OPS.setFillRGBColor) { fillWhite = isWhiteColor(args); continue; }
+      if (fn === OPS.setFillGray) { fillWhite = (args?.[0] ?? 0) > 0.92; continue; }
+      if (fn === OPS.constructPath) {
+        const pathOps = args?.[0] || [];
+        const mm = args?.[2];
+        const rectOnly = pathOps.length > 0 && pathOps.every(o => o === OPS.rectangle);
+        if (mm && isFinite(mm[0]) && isFinite(mm[2]) && !rectOnly) {
+          const m = mulMat(viewport.transform, ctm);
+          const pts = [applyMat(m, mm[0], mm[2]), applyMat(m, mm[1], mm[2]), applyMat(m, mm[0], mm[3]), applyMat(m, mm[1], mm[3])];
+          const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+          pendingPath = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+        } else pendingPath = null;
+        continue;
+      }
+      if (FILL_OPS.has(fn)) {
+        if (pendingPath && !fillWhite) vec.push(pendingPath);
+        pendingPath = null;
+        continue;
+      }
       if (fn === OPS.save) stack.push(ctm);
       else if (fn === OPS.restore) ctm = stack.pop() || [1, 0, 0, 1, 0, 0];
       else if (fn === OPS.transform) ctm = mulMat(ctm, args);
@@ -283,11 +318,13 @@
       .map(b => { const c = [Math.max(0, b[0]), Math.max(0, b[1]), Math.min(W, b[2]), Math.min(H, b[3])]; c.drawing = b.drawing; return c; })
       .filter(b => {
         const w = b[2] - b[0], h = b[3] - b[1];
-        if (w < 22 || h < 22) return false;
-        if (w * h < 900) return false;
+        if (Math.min(w, h) < 6 || Math.max(w, h) < 30) return false;
+        if (w * h < 500) return false;
         if (w * h > W * H * 0.5) return false;
         const ar = w / h;
-        if (ar > 5 || ar < 0.18) return false;
+        if (ar > 15 || ar < 1 / 15) return false;
+        // linguette di sezione sul bordo pagina (SOLLEVATORI, SMONTAGOMME, ...)
+        if ((ar > 3 || ar < 1 / 3) && (b[0] < 18 || b[2] > W - 18)) return false;
         if (b[3] < H * 0.085) return false;   // testata (logo, titolo)
         if (b[1] > H * 0.955) return false;   // piè di pagina
         return true;
@@ -321,8 +358,46 @@
       }
     }
 
-    // formato salvato: [x0, y0, x1, y1, disegno(0/1)]
-    return list.map(b => [...b.slice(0, 4).map(v => Math.round(v * 10) / 10), b.drawing ? 1 : 0]);
+    // icone vettoriali: si raggruppano le forme vicine (es. cerchio giallo + onde)
+    let groups = vec
+      .filter(b => (b[2] - b[0]) < 260 && (b[3] - b[1]) < 260)
+      .map(b => b.slice());
+    let joined = true;
+    while (joined) {
+      joined = false;
+      outerV:
+      for (let i = 0; i < groups.length; i++) {
+        for (let j = i + 1; j < groups.length; j++) {
+          const a = groups[i], b = groups[j];
+          if (a[0] - 2 <= b[2] && b[0] - 2 <= a[2] && a[1] - 2 <= b[3] && b[1] - 2 <= a[3]) {
+            groups[i] = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
+            groups.splice(j, 1);
+            joined = true;
+            break outerV;
+          }
+        }
+      }
+    }
+    const icons = groups.filter(b => {
+      const w = b[2] - b[0], h = b[3] - b[1];
+      if (w < 14 || h < 14 || w > 220 || h > 220) return false;
+      if (w / h > 4 || w / h < 0.25) return false;          // fasce e linguette, non icone
+      if (b[0] < 18 || b[2] > W - 18) return false;          // bordo pagina
+      if (b[3] < H * 0.085 || b[1] > H * 0.955) return false;
+      // non se coincide con una foto già presente
+      return !list.some(p => b[0] >= p[0] - 2 && b[2] <= p[2] + 2 && b[1] >= p[1] - 2 && b[3] <= p[3] + 2);
+    });
+
+    // formato salvato: [x0, y0, x1, y1, tipo] — tipo 0 foto, 1 disegno tecnico, 2 icona vettoriale
+    return [
+      ...list.map(b => {
+        const w = b[2] - b[0], h = b[3] - b[1], ar = w / h;
+        // tipo 3: immagine stretta e lunga (leve, aste, ma anche fasce e linguette)
+        const tipo = (ar > 5 || ar < 0.2) ? 3 : (b.drawing ? 1 : 0);
+        return [...b.slice(0, 4).map(v => Math.round(v * 10) / 10), tipo];
+      }),
+      ...icons.map(b => [...b.map(v => Math.round(v * 10) / 10), 2])
+    ];
   }
 
   async function pageCodes(page, viewport, lib) {
@@ -407,9 +482,11 @@
     // 1) tabella: immagine sulla stessa riga, a sinistra del codice
     let best = null, bestGap = Infinity;
     imgs.forEach(b => {
-      const sameRow = ccy >= b[1] - 2 && ccy <= b[3] + 2;
+      const sameRow = ccy >= b[1] - 6 && ccy <= b[3] + 6;
       const gap = cx0 - b[2];
-      if (sameRow && gap >= -6 && gap < 170 && gap < bestGap) { best = b; bestGap = gap; }
+      // solo immagini attaccate alla cella del codice (tabelle accessori),
+      // non foto di un altro riquadro più a sinistra
+      if (sameRow && gap >= -6 && gap < 60 && gap < bestGap) { best = b; bestGap = gap; }
     });
     if (best) return { box: best, conf: 3 };
 
@@ -425,8 +502,10 @@
     }
 
     // 3) immagine principale della sezione, sopra al codice
-    const weight = b => area(b) * (b[4] ? 0.12 : 1); // i disegni tecnici pesano poco
-    let above = imgs.filter(b => b[3] <= cy0 + 6);
+    const weight = b => area(b) * (b[4] === 1 ? 0.12 : 1); // i disegni tecnici pesano poco
+    // icone (2) e immagini strette (3) non fanno mai da foto principale
+    const photos = imgs.filter(b => b[4] === 0 || b[4] === 1);
+    let above = photos.filter(b => b[3] <= cy0 + 6);
 
     if (occ.pr) {
       // sezione = dalla tabella prezzi precedente (se c'è) fino alla riga del codice
@@ -449,7 +528,7 @@
         const main = big[0];
         // famiglia: altre foto affiancate alla principale (stessa altezza e allineamento)
         const h = main[3] - main[1];
-        const fam = above.filter(b => !b[4] && Math.abs(b[1] - main[1]) < 20 &&
+        const fam = above.filter(b => b[4] === 0 && Math.abs(b[1] - main[1]) < 20 &&
           (b[3] - b[1]) > h * 0.6 && (b[3] - b[1]) < h * 1.6);
         const box = fam.length > 1
           ? [Math.min(...fam.map(b => b[0])), Math.min(...fam.map(b => b[1])), Math.max(...fam.map(b => b[2])), Math.max(...fam.map(b => b[3]))]
@@ -467,8 +546,26 @@
     }
 
     // 4) ripiego: l'immagine più grande della pagina
-    best = imgs.slice().sort((a, b) => weight(b) - weight(a))[0];
+    best = photos.slice().sort((a, b) => weight(b) - weight(a))[0];
     return best ? { box: best, conf: 0.5 } : null;
+  }
+
+  // Pagine "tabella accessori": molte righe prezzo con l'immagine accanto.
+  // Lì, se una riga non ha un'immagine sua, meglio nessuna immagine che una sbagliata.
+  let tablePagesCache = null;
+  function isTablePage(p) {
+    if (!state.index) return false;
+    if (!tablePagesCache || tablePagesCache.fp !== state.index.fp) {
+      const counts = {};
+      Object.values(state.index.codes).forEach(list => list.forEach(o => {
+        if (!o.pr) return;
+        const pi = state.index.pages[o.p - 1];
+        const ch = pi ? chooseImage(pi, o) : null;
+        if (ch && ch.conf >= 3) counts[o.p] = (counts[o.p] || 0) + 1;
+      }));
+      tablePagesCache = { fp: state.index.fp, counts };
+    }
+    return (tablePagesCache.counts[p] || 0) >= 3;
   }
 
   function resolve(code, pagine) {
@@ -483,9 +580,12 @@
     occs.forEach((o, i) => {
       const pi = state.index.pages[o.p - 1];
       if (!pi) return;
-      const ch = chooseImage(pi, o);
+      let ch = chooseImage(pi, o);
+      if (ch && ch.conf < 3 && o.pr && isTablePage(o.p)) ch = null;
       let score = ch ? ch.conf : 0;
       if (hinted.has(String(o.p))) score += 0.75;
+      // a parità di certezza vince la riga con il prezzo (tabella listino)
+      if (o.pr && ch && ch.conf >= 3) score += 0.4;
       score -= i * 0.001; // a parità vince la prima occorrenza
       if (!best || score > best.score) best = { score, p: o.p, box: ch ? ch.box : null };
     });
@@ -535,7 +635,7 @@
     if (!state.index || !state.meta) return Promise.resolve(null);
     const key = normCode(code);
     if (!key) return Promise.resolve(null);
-    const cacheKey = `${state.meta.fp}|${key}`;
+    const cacheKey = `${state.meta.fp}|r6|${key}`; // r6: regole di scelta aggiornate
 
     if (state.thumbMem.has(cacheKey)) return Promise.resolve(state.thumbMem.get(cacheKey));
     if (state.pending.has(cacheKey)) return state.pending.get(cacheKey);
@@ -798,6 +898,96 @@
   // -------------------- STAMPA CON IMMAGINI --------------------
   // Usa ESATTAMENTE il testo dei report di app.js (stessa logica del TXT),
   // spezzato per articolo, e affianca a ogni articolo la sua immagine.
+  // App iOS (Capacitor): il WKWebView non sa stampare. Si genera un file PDF
+  // (stesso contenuto della stampa) che si apre nel pannello Condividi di iOS,
+  // da cui si può stampare, salvare in File, inviare per Mail/WhatsApp.
+  function isNativeApp() {
+    try {
+      if (window.__CAPACITOR_NATIVE__) return true;
+      return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
+    } catch (_) { return false; }
+  }
+
+  function imgSize(url) {
+    return new Promise(res => {
+      const im = new Image();
+      im.onload = () => res({ w: im.naturalWidth || 1, h: im.naturalHeight || 1 });
+      im.onerror = () => res(null);
+      im.src = url;
+    });
+  }
+
+  async function stampaComePDF(report, items, parts, splitOk, senzaMargine) {
+    const JsPDF = window.jspdf && window.jspdf.jsPDF;
+    if (!JsPDF) { alert('Generazione PDF non disponibile.'); return; }
+
+    const doc = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    const M = 12, W = 210, H = 297, PIC = 38, GAP = 6, LH = 4.6;
+    const textX = M + PIC + GAP, textW = W - M - textX;
+    let y = M;
+
+    // intestazione
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+    doc.text(splitOk ? parts[0].replace(/:$/, '') : 'Report', M, y + 5);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text(new Date().toLocaleDateString('it-IT'), W - M, y + 5, { align: 'right' });
+    y += 9;
+    doc.setLineWidth(0.6); doc.line(M, y, W - M, y);
+    y += 5;
+
+    doc.setFontSize(10.5);
+
+    if (!splitOk) {
+      doc.splitTextToSize(report, W - 2 * M).forEach(line => {
+        if (y + LH > H - M) { doc.addPage(); y = M; }
+        doc.text(line, M, y + 3.5); y += LH;
+      });
+    } else {
+      const n = items.length;
+      for (let i = 0; i < n; i++) {
+        const url = state.index ? await getThumb(items[i].codice, items[i].pagine).catch(() => null) : null;
+        const lines = doc.splitTextToSize(parts[i + 1], textW);
+        const rowH = Math.max(PIC, lines.length * LH) + 6;
+        if (y + rowH > H - M) { doc.addPage(); y = M; }
+
+        if (url) {
+          const sz = await imgSize(url);
+          if (sz) {
+            const k = Math.min(PIC / sz.w, PIC / sz.h);
+            const w = sz.w * k, h = sz.h * k;
+            try { doc.addImage(url, 'JPEG', M + (PIC - w) / 2, y + (PIC - h) / 2, w, h); } catch (_) {}
+          }
+        }
+        doc.setFont('helvetica', 'normal');
+        lines.forEach((line, k) => doc.text(line, textX, y + 3.5 + k * LH));
+        y += rowH;
+        doc.setLineWidth(0.2); doc.setDrawColor(200);
+        doc.line(M, y - 3, W - M, y - 3);
+        doc.setDrawColor(0);
+      }
+
+      const tot = parts.slice(n + 1).join('\n\n');
+      if (tot.trim()) {
+        doc.setFont('helvetica', 'bold');
+        const tl = doc.splitTextToSize(tot, W - 2 * M);
+        if (y + tl.length * LH > H - M) { doc.addPage(); y = M; }
+        y += 2;
+        tl.forEach(line => { doc.text(line, M, y + 3.5); y += LH; });
+      }
+    }
+
+    const nome = senzaMargine ? 'preventivo_immagini_senza_margine.pdf' : 'preventivo_immagini.pdf';
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nome;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click(); // su iOS lo intercetta ios-share-shim.js e apre il pannello Condividi
+    setTimeout(() => { try { a.remove(); URL.revokeObjectURL(url); } catch (_) {} }, 60000);
+  }
+
   async function stampa(senzaMargine) {
     if (typeof reportVuoto === 'function' && reportVuoto()) return;
 
@@ -808,6 +998,12 @@
     const parts = report.replace(/\n+$/, '').split('\n\n');
     const n = items.length;
     const splitOk = parts.length >= n + 1;
+
+    if (isNativeApp()) {
+      try { await stampaComePDF(report, items, parts, splitOk, senzaMargine); }
+      catch (e) { console.error('[PDF] generazione non riuscita', e); alert('Impossibile generare il PDF.'); }
+      return;
+    }
 
     let area = el('xpPrintArea');
     if (!area) {
