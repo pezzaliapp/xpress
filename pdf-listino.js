@@ -999,20 +999,46 @@
     const n = items.length;
     const splitOk = parts.length >= n + 1;
 
-    // Opzione solo-stampa: aggiunge il Prezzo Lordo sotto descrizione/codice.
+    // Opzioni solo-stampa: Prezzo Lordo e Sconto applicato sotto descrizione/codice.
     // I report TXT/WhatsApp e i calcoli non vengono toccati.
-    if (splitOk && printShowLordo()) {
+    const showLordo = printShowLordo();
+    const showSconto = printShowSconto();
+    if (splitOk && (showLordo || showSconto)) {
       for (let i = 0; i < n; i++) {
         const a = items[i] || {};
-        let lordo;
-        try { lordo = roundTwo(parseDec(a.prezzoLordo || 0)).toFixed(2); }
-        catch (_) { lordo = Number(a.prezzoLordo || 0).toFixed(2); }
-        const riga = `Prezzo lordo: ${lordo}€`;
+        const extra = [];
+        if (showLordo) {
+          let lordo;
+          try { lordo = roundTwo(parseDec(a.prezzoLordo || 0)).toFixed(2); }
+          catch (_) { lordo = Number(a.prezzoLordo || 0).toFixed(2); }
+          extra.push(`Prezzo lordo: ${lordo}€`);
+        }
+        if (showSconto) {
+          // sconto che vede il cliente: dal prezzo lordo al prezzo di vendita
+          // (stessa formula dello "Sconto eq. cliente" dell'app)
+          let sc = 0;
+          try {
+            const clientMode = typeof smartSettings !== 'undefined' && !!smartSettings.showClientDiscount;
+            if (clientMode) {
+              sc = clamp(parseDec(a.scontoCliente || 0), 0, 100);
+            } else if (senzaMargine) {
+              // stampa senza margine: solo Sc.1 e Sc.2, come i prezzi stampati
+              const s1 = clamp(parseDec(a.sconto || 0), 0, 100);
+              const s2 = clamp(parseDec(a.sconto2 || 0), 0, 100);
+              sc = (1 - (1 - s1 / 100) * (1 - s2 / 100)) * 100;
+            } else {
+              sc = computeClientDiscountFromCurrent(a);
+            }
+          } catch (_) { sc = 0; }
+          let txt;
+          try { txt = fmtDec(sc, 2, true); } catch (_) { txt = String(Math.round(sc * 100) / 100); }
+          extra.push(`Sconto applicato: ${txt || '0'}%`);
+        }
         const lines = parts[i + 1].split('\n');
         let at = lines.findIndex(l => l.startsWith('Descrizione:'));
         if (at < 0) at = lines.findIndex(l => l.startsWith('Codice:'));
         if (at < 0) at = 0;
-        lines.splice(at + 1, 0, riga);
+        lines.splice(at + 1, 0, ...extra);
         parts[i + 1] = lines.join('\n');
       }
     }
@@ -1099,6 +1125,13 @@
     try { return localStorage.getItem(PRINT_LORDO_KEY) === '1'; } catch (_) { return false; }
   }
 
+  const PRINT_SCONTO_KEY = 'xpress_print_show_sconto_v1';
+  function printShowSconto() {
+    const chk = el('togglePrintSconto');
+    if (chk) return !!chk.checked;
+    try { return localStorage.getItem(PRINT_SCONTO_KEY) === '1'; } catch (_) { return false; }
+  }
+
   // -------------------- INIT --------------------
   function bindUI() {
     const input = el('pdfFileInput');
@@ -1164,6 +1197,14 @@
       try { chkLordo.checked = localStorage.getItem(PRINT_LORDO_KEY) === '1'; } catch (_) {}
       chkLordo.addEventListener('change', () => {
         try { localStorage.setItem(PRINT_LORDO_KEY, chkLordo.checked ? '1' : '0'); } catch (_) {}
+      });
+    }
+
+    const chkSconto = el('togglePrintSconto');
+    if (chkSconto) {
+      try { chkSconto.checked = localStorage.getItem(PRINT_SCONTO_KEY) === '1'; } catch (_) {}
+      chkSconto.addEventListener('change', () => {
+        try { localStorage.setItem(PRINT_SCONTO_KEY, chkSconto.checked ? '1' : '0'); } catch (_) {}
       });
     }
 
