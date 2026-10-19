@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<html data-app="Xpress" data-ver="2.0.2" lang="it">
+<html data-app="Xpress" data-ver="2.0.3" lang="it">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
@@ -161,6 +161,7 @@
 </section>
 <section data-zone="report_export" id="report-section">
 <h2>Report Articoli</h2><div class="report-actions"><button id="btnWA" onclick="inviaReportWhatsApp()">Invia WhatsApp</button><button id="btnTXT" onclick="generaPDFReport()">Genera TXT</button></div><div class="report-actions report-actions--secondary"><button id="btnWASenzaMargine" onclick="inviaReportWhatsAppSenzaMargine()">WA (No Marg.)</button><button id="btnTXTSenzaMargine" onclick="generaTXTReportSenzaMargine()">TXT (No Marg.)</button></div><div class="report-actions report-actions--print"><button id="btnPrint" type="button">Stampa / PDF con immagini</button><button id="btnPrintSenzaMargine" type="button">Stampa (No Marg.)</button></div>
+<label class="chk xp-print-opt"><input id="togglePrintLordo" type="checkbox"/> Mostra Prezzo Lordo nella stampa</label>
 <div class="report-preview" id="reportPreview" style="margin-top:14px; display:none;"></div>
 </section>
 </main>

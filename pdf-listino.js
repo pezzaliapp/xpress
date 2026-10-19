@@ -999,6 +999,24 @@
     const n = items.length;
     const splitOk = parts.length >= n + 1;
 
+    // Opzione solo-stampa: aggiunge il Prezzo Lordo sotto descrizione/codice.
+    // I report TXT/WhatsApp e i calcoli non vengono toccati.
+    if (splitOk && printShowLordo()) {
+      for (let i = 0; i < n; i++) {
+        const a = items[i] || {};
+        let lordo;
+        try { lordo = roundTwo(parseDec(a.prezzoLordo || 0)).toFixed(2); }
+        catch (_) { lordo = Number(a.prezzoLordo || 0).toFixed(2); }
+        const riga = `Prezzo lordo: ${lordo}€`;
+        const lines = parts[i + 1].split('\n');
+        let at = lines.findIndex(l => l.startsWith('Descrizione:'));
+        if (at < 0) at = lines.findIndex(l => l.startsWith('Codice:'));
+        if (at < 0) at = 0;
+        lines.splice(at + 1, 0, riga);
+        parts[i + 1] = lines.join('\n');
+      }
+    }
+
     if (isNativeApp()) {
       try { await stampaComePDF(report, items, parts, splitOk, senzaMargine); }
       catch (e) { console.error('[PDF] generazione non riuscita', e); alert('Impossibile generare il PDF.'); }
@@ -1073,6 +1091,14 @@
     }, 50);
   }
 
+  // -------------------- OPZIONE STAMPA: PREZZO LORDO --------------------
+  const PRINT_LORDO_KEY = 'xpress_print_show_lordo_v1';
+  function printShowLordo() {
+    const chk = el('togglePrintLordo');
+    if (chk) return !!chk.checked;
+    try { return localStorage.getItem(PRINT_LORDO_KEY) === '1'; } catch (_) { return false; }
+  }
+
   // -------------------- INIT --------------------
   function bindUI() {
     const input = el('pdfFileInput');
@@ -1131,6 +1157,14 @@
       const x = el('xpLightboxClose');
       if (x) x.addEventListener('click', closeLightbox);
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
+    }
+
+    const chkLordo = el('togglePrintLordo');
+    if (chkLordo) {
+      try { chkLordo.checked = localStorage.getItem(PRINT_LORDO_KEY) === '1'; } catch (_) {}
+      chkLordo.addEventListener('change', () => {
+        try { localStorage.setItem(PRINT_LORDO_KEY, chkLordo.checked ? '1' : '0'); } catch (_) {}
+      });
     }
 
     const b1 = el('btnPrint');
