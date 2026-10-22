@@ -999,50 +999,6 @@
     const n = items.length;
     const splitOk = parts.length >= n + 1;
 
-    // Opzioni solo-stampa: Prezzo Lordo e Sconto applicato sotto descrizione/codice.
-    // I report TXT/WhatsApp e i calcoli non vengono toccati.
-    const showLordo = printShowLordo();
-    const showSconto = printShowSconto();
-    if (splitOk && (showLordo || showSconto)) {
-      for (let i = 0; i < n; i++) {
-        const a = items[i] || {};
-        const extra = [];
-        if (showLordo) {
-          let lordo;
-          try { lordo = roundTwo(parseDec(a.prezzoLordo || 0)).toFixed(2); }
-          catch (_) { lordo = Number(a.prezzoLordo || 0).toFixed(2); }
-          extra.push(`Prezzo lordo: ${lordo}€`);
-        }
-        if (showSconto) {
-          // sconto che vede il cliente: dal prezzo lordo al prezzo di vendita
-          // (stessa formula dello "Sconto eq. cliente" dell'app)
-          let sc = 0;
-          try {
-            const clientMode = typeof smartSettings !== 'undefined' && !!smartSettings.showClientDiscount;
-            if (clientMode) {
-              sc = clamp(parseDec(a.scontoCliente || 0), 0, 100);
-            } else if (senzaMargine) {
-              // stampa senza margine: solo Sc.1 e Sc.2, come i prezzi stampati
-              const s1 = clamp(parseDec(a.sconto || 0), 0, 100);
-              const s2 = clamp(parseDec(a.sconto2 || 0), 0, 100);
-              sc = (1 - (1 - s1 / 100) * (1 - s2 / 100)) * 100;
-            } else {
-              sc = computeClientDiscountFromCurrent(a);
-            }
-          } catch (_) { sc = 0; }
-          let txt;
-          try { txt = fmtDec(sc, 2, true); } catch (_) { txt = String(Math.round(sc * 100) / 100); }
-          extra.push(`Sconto applicato: ${txt || '0'}%`);
-        }
-        const lines = parts[i + 1].split('\n');
-        let at = lines.findIndex(l => l.startsWith('Descrizione:'));
-        if (at < 0) at = lines.findIndex(l => l.startsWith('Codice:'));
-        if (at < 0) at = 0;
-        lines.splice(at + 1, 0, ...extra);
-        parts[i + 1] = lines.join('\n');
-      }
-    }
-
     if (isNativeApp()) {
       try { await stampaComePDF(report, items, parts, splitOk, senzaMargine); }
       catch (e) { console.error('[PDF] generazione non riuscita', e); alert('Impossibile generare il PDF.'); }
@@ -1132,6 +1088,81 @@
     try { return localStorage.getItem(PRINT_SCONTO_KEY) === '1'; } catch (_) { return false; }
   }
 
+  // -------------------- RIGHE OPZIONALI NEI REPORT --------------------
+  // Aggiunge "Prezzo lordo" e/o "Sconto applicato" sotto descrizione/codice di ogni
+  // articolo, nel testo prodotto dai report di app.js (WhatsApp, TXT, stampa).
+  // Calcoli e funzioni di app.js NON vengono modificati: si lavora solo sul testo.
+  function aggiungiRigheOpzionali(report, senzaMargine) {
+    const showLordo = printShowLordo();
+    const showSconto = printShowSconto();
+    if (!showLordo && !showSconto) return report;
+    if (typeof report !== 'string') return report;
+
+    const items = (typeof articoliAggiunti !== 'undefined') ? articoliAggiunti : [];
+    const n = items.length;
+    if (!n) return report;
+
+    const trailing = (report.match(/\n+$/) || [''])[0];
+    const parts = report.replace(/\n+$/, '').split('\n\n');
+    if (parts.length < n + 1) return report; // struttura inattesa: testo invariato
+
+    for (let i = 0; i < n; i++) {
+      const a = items[i] || {};
+      const extra = [];
+      if (showLordo) {
+        let lordo;
+        try { lordo = roundTwo(parseDec(a.prezzoLordo || 0)).toFixed(2); }
+        catch (_) { lordo = Number(a.prezzoLordo || 0).toFixed(2); }
+        extra.push(`Prezzo lordo: ${lordo}€`);
+      }
+      if (showSconto) {
+        // sconto che vede il cliente, dal prezzo lordo al prezzo riportato nel report
+        let sc = 0;
+        try {
+          const clientMode = typeof smartSettings !== 'undefined' && !!smartSettings.showClientDiscount;
+          if (clientMode) {
+            sc = clamp(parseDec(a.scontoCliente || 0), 0, 100);
+          } else if (senzaMargine) {
+            const s1 = clamp(parseDec(a.sconto || 0), 0, 100);
+            const s2 = clamp(parseDec(a.sconto2 || 0), 0, 100);
+            sc = (1 - (1 - s1 / 100) * (1 - s2 / 100)) * 100;
+          } else {
+            sc = computeClientDiscountFromCurrent(a);
+          }
+        } catch (_) { sc = 0; }
+        let txt;
+        try { txt = fmtDec(sc, 2, true); } catch (_) { txt = String(Math.round(sc * 100) / 100); }
+        extra.push(`Sconto applicato: ${txt || '0'}%`);
+      }
+      const lines = parts[i + 1].split('\n');
+      let at = lines.findIndex(l => l.startsWith('Descrizione:'));
+      if (at < 0) at = lines.findIndex(l => l.startsWith('Codice:'));
+      if (at < 0) at = 0;
+      lines.splice(at + 1, 0, ...extra);
+      parts[i + 1] = lines.join('\n');
+    }
+    return parts.join('\n\n') + trailing;
+  }
+
+  // Avvolge le due funzioni che generano il testo dei report: così WhatsApp, TXT
+  // e stampa ricevono le stesse righe opzionali. Con le spunte spente: testo identico.
+  function agganciaReport() {
+    try {
+      if (typeof window.generaReportTesto === 'function' && !window.generaReportTesto.__xp) {
+        const orig = window.generaReportTesto;
+        const w = function () { return aggiungiRigheOpzionali(orig.apply(this, arguments), false); };
+        w.__xp = true;
+        window.generaReportTesto = w;
+      }
+      if (typeof window.generaReportTestoSenzaMargine === 'function' && !window.generaReportTestoSenzaMargine.__xp) {
+        const orig = window.generaReportTestoSenzaMargine;
+        const w = function () { return aggiungiRigheOpzionali(orig.apply(this, arguments), true); };
+        w.__xp = true;
+        window.generaReportTestoSenzaMargine = w;
+      }
+    } catch (e) { console.warn('[Xpress] righe opzionali non agganciate', e); }
+  }
+
   // -------------------- INIT --------------------
   function bindUI() {
     const input = el('pdfFileInput');
@@ -1191,6 +1222,11 @@
       if (x) x.addEventListener('click', closeLightbox);
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
     }
+
+    // app.js viene eseguito dopo questo file: si aggancia quando è pronto
+    agganciaReport();
+    document.addEventListener('DOMContentLoaded', agganciaReport);
+    window.addEventListener('load', agganciaReport);
 
     const chkLordo = el('togglePrintLordo');
     if (chkLordo) {
