@@ -2,7 +2,7 @@
 // Xpress — Service Worker
 // PWA statica: nessuna richiesta a servizi esterni, tutto same-origin.
 // Versione: bumpare SEMPRE quando cambiano gli asset.
-const CACHE_VERSION = 'v2.0.5';
+const CACHE_VERSION = 'v2.0.6';
 const CACHE_NAME = `xpress-${CACHE_VERSION}`;
 
 // Asset locali da cacheare (app shell)

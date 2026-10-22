@@ -79,7 +79,7 @@ if ('serviceWorker' in navigator) {
 // Variabili globali
 let listino = [];
 let articoliAggiunti = [];
-let autoPopolaCosti = true;
+let autoPopolaCosti = false; // Xpress: di default trasporto/installazione non popolati
 let mostraDettagliServizi = true;
 
 // -------------------- HELPERS NUMERICI (virgola/decimali) --------------------
@@ -665,13 +665,13 @@ document.addEventListener("DOMContentLoaded", function () {
   // Checkboxes (già presenti)
   const checkbox1 = document.createElement("label");
   checkbox1.innerHTML = `
-    <input type="checkbox" id="toggleCosti" checked onchange="togglePopolaCosti()"> Popola automaticamente Trasporto e Installazione
+    <input type="checkbox" id="toggleCosti" onchange="togglePopolaCosti()"> Popola automaticamente Trasporto e Installazione
   `;
   document.getElementById("upload-section").appendChild(checkbox1);
 
   const checkbox2 = document.createElement("label");
   checkbox2.innerHTML = `
-    <br><input type="checkbox" id="toggleMostraServizi" checked> Mostra dettagli Trasporto/Installazione nel report
+    <br><input type="checkbox" id="toggleMostraServizi" checked disabled> Mostra dettagli Trasporto/Installazione nel report
   `;
   document.getElementById("upload-section").appendChild(checkbox2);
 
