@@ -1171,16 +1171,24 @@
     await Promise.all(Array.from(area.querySelectorAll('img')).map(img =>
       (img.decode ? img.decode() : Promise.resolve()).catch(() => {})));
 
+    // La classe xp-printing agisce SOLO in @media print (a schermo non cambia nulla).
+    // Su Android l'anteprima di stampa viene generata/rigenerata DOPO il ritorno di
+    // window.print() e anche dopo afterprint: se la classe venisse tolta subito
+    // (o dopo un timeout) si stamperebbe l'intera pagina dell'app invece del report.
+    // Quindi resta attiva finché l'utente non torna a usare l'app (primo tocco/tasto
+    // almeno 2 s dopo la stampa), oppure fino alla stampa successiva.
     document.body.classList.add('xp-printing');
-    const done = () => {
+    const t0 = Date.now();
+    const done = (ev) => {
+      if (Date.now() - t0 < 2000) return;
       document.body.classList.remove('xp-printing');
-      window.removeEventListener('afterprint', done);
+      document.removeEventListener('pointerdown', done, true);
+      document.removeEventListener('keydown', done, true);
     };
-    window.addEventListener('afterprint', done);
+    document.addEventListener('pointerdown', done, true);
+    document.addEventListener('keydown', done, true);
     setTimeout(() => {
       try { window.print(); } catch (e) { console.warn('Stampa non disponibile', e); }
-      // alcuni browser mobili non emettono afterprint
-      setTimeout(done, 1500);
     }, 50);
   }
 
