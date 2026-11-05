@@ -150,6 +150,9 @@ body.xp-noscroll{ overflow: hidden; }
     padding-bottom: 4mm;
     margin-bottom: 4mm;
   }
+  .xp-print-brand{ display: flex; align-items: center; gap: 5mm; min-width: 0; }
+  .xp-print-logo{ max-height: 18mm; max-width: 60mm; object-fit: contain; display: block; }
+  .xp-print-head--logo{ align-items: center; }
   .xp-print-title{ font-size: 15pt; font-weight: 700; }
   .xp-print-date{ font-size: 10pt; color: #444; }
   .xp-print-row{
@@ -213,3 +216,25 @@ body.xp-noscroll{ overflow: hidden; }
 
 /* opzione di stampa sotto i pulsanti */
 .xp-print-opt{ display:block; margin: 4px 0 10px; font-size: 14px; }
+
+/* Logo rivenditore (impostazione) */
+.xp-logo-box{
+  margin: 14px 0 6px;
+  padding: 12px;
+  border: 1px solid #dbe4ef;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+.xp-logo-box h3{ margin: 0 0 4px; font-size: 16px; }
+.xp-logo-row{ display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.xp-logo-preview{
+  width: 140px; height: 70px;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff; border: 1px dashed #c5d3e3; border-radius: 8px; padding: 4px;
+}
+.xp-logo-preview[hidden]{ display: none !important; }
+.xp-logo-preview img{ max-width: 100%; max-height: 100%; object-fit: contain; }
+.xp-logo-actions{ display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1 1 200px; }
+.xp-logo-actions input[type="file"]{ max-width: 100%; }
+.xp-logo-actions button{ margin: 0; max-width: 220px; }
+.xp-logo-actions button[hidden]{ display: none !important; }

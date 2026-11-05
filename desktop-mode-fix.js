@@ -21,6 +21,15 @@
   var root = document.documentElement;
   var original = new WeakMap();   // CSSMediaRule -> mediaText originale
   var applied = 0;                // zoom attualmente applicato (0 = nessuno)
+  var printing = false;           // durante la stampa la correzione è sospesa
+
+  // Rete di sicurezza: in stampa lo zoom non deve MAI essere applicato
+  // (altrimenti foto e testo escono ingranditi e tagliati sul foglio A4).
+  try {
+    var st = document.createElement('style');
+    st.textContent = '@media print{html{zoom:1 !important}}';
+    (document.head || root).appendChild(st);
+  } catch (_) {}
 
   function realScreenWidth() {
     var w = (window.screen && screen.width) || 0;
@@ -88,6 +97,7 @@
   }
 
   function update() {
+    if (printing) return;
     var sw = realScreenWidth();
     var lw = layoutWidth();
     var forced = isTouch() && sw > 0 && lw >= 900 && sw < lw * 0.85;
@@ -108,6 +118,28 @@
     }
   }
 
+  // Stampa: toglie zoom e media query riscritte, le rimette al termine
+  function beforePrint() {
+    printing = true;
+    root.style.zoom = '';
+    root.classList.remove('xp-forced-desktop');
+    applied = 0;
+    rewriteAll(0);
+  }
+  function afterPrint() {
+    if (!printing) return;
+    printing = false;
+    update();
+  }
+  window.addEventListener('beforeprint', beforePrint);
+  window.addEventListener('afterprint', afterPrint);
+  if (window.matchMedia) {
+    var mqp = matchMedia('print');
+    var onMq = function (e) { if (e.matches) beforePrint(); else afterPrint(); };
+    if (mqp.addEventListener) mqp.addEventListener('change', onMq);
+    else if (mqp.addListener) mqp.addListener(onMq);
+  }
+
   var t = 0;
   function schedule() { clearTimeout(t); t = setTimeout(update, 120); }
 
@@ -121,7 +153,7 @@
   window.addEventListener('orientationchange', schedule);
 
   // utile per test/diagnosi
-  window.__xpDesktopFix = { update: update, state: function () {
+  window.__xpDesktopFix = { update: update, beforePrint: beforePrint, afterPrint: afterPrint, state: function () {
     return { zoom: applied, screen: realScreenWidth(), layout: layoutWidth() };
   } };
 })();

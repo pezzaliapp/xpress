@@ -917,6 +917,87 @@
     });
   }
 
+  // -------------------- LOGO RIVENDITORE (stampa / PDF) --------------------
+  // Salvato solo sul dispositivo (localStorage) come immagine ridimensionata.
+  const PRINT_LOGO_KEY = 'xpress_print_logo_v1';
+  function getLogo() {
+    try { return localStorage.getItem(PRINT_LOGO_KEY) || ''; } catch (_) { return ''; }
+  }
+
+  // Ridimensiona (max 600×300 px) e converte in PNG (o JPEG se troppo pesante)
+  function preparaLogo(file) {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onerror = () => reject(new Error('lettura non riuscita'));
+      fr.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('immagine non valida'));
+        img.onload = () => {
+          let w = img.naturalWidth || img.width || 600;
+          let h = img.naturalHeight || img.height || 300;
+          const k = Math.min(1, 600 / w, 300 / h);
+          w = Math.max(1, Math.round(w * k)); h = Math.max(1, Math.round(h * k));
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          let out = c.toDataURL('image/png');
+          if (out.length > 600000) {
+            const c2 = document.createElement('canvas');
+            c2.width = w; c2.height = h;
+            const x2 = c2.getContext('2d');
+            x2.fillStyle = '#fff'; x2.fillRect(0, 0, w, h);
+            x2.drawImage(img, 0, 0, w, h);
+            out = c2.toDataURL('image/jpeg', 0.9);
+          }
+          resolve(out);
+        };
+        img.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+
+  function aggiornaLogoUI() {
+    const url = getLogo();
+    const box = el('xpLogoPreview'), img = el('xpLogoImg'), rm = el('xpLogoRemove');
+    if (img) { if (url) img.src = url; else img.removeAttribute('src'); }
+    if (box) box.hidden = !url;
+    if (rm) rm.hidden = !url;
+  }
+
+  function logoStatus(msg, err) {
+    const st = el('xpLogoStatus');
+    if (!st) return;
+    st.textContent = msg || '';
+    st.style.display = msg ? 'block' : 'none';
+    st.style.color = err ? '#c62828' : '';
+  }
+
+  function bindLogoUI() {
+    const inp = el('xpLogoInput'), rm = el('xpLogoRemove');
+    if (inp) inp.addEventListener('change', async () => {
+      const f = inp.files && inp.files[0];
+      if (!f) return;
+      try {
+        const url = await preparaLogo(f);
+        localStorage.setItem(PRINT_LOGO_KEY, url);
+        logoStatus('✓ Logo salvato: comparirà nella stampa e nel PDF.');
+      } catch (e) {
+        console.warn('[Logo] non salvato', e);
+        logoStatus('Impossibile usare questa immagine come logo. Prova con un PNG o JPG.', true);
+      }
+      inp.value = '';
+      aggiornaLogoUI();
+    });
+    if (rm) rm.addEventListener('click', () => {
+      try { localStorage.removeItem(PRINT_LOGO_KEY); } catch (_) {}
+      logoStatus('Logo rimosso.');
+      aggiornaLogoUI();
+    });
+    aggiornaLogoUI();
+  }
+
   async function stampaComePDF(report, items, parts, splitOk, senzaMargine) {
     const JsPDF = window.jspdf && window.jspdf.jsPDF;
     if (!JsPDF) { alert('Generazione PDF non disponibile.'); return; }
@@ -926,12 +1007,28 @@
     const textX = M + PIC + GAP, textW = W - M - textX;
     let y = M;
 
-    // intestazione
+    // intestazione (con logo rivenditore, se impostato)
+    let titleX = M, headH = 9, baseY = y + 5;
+    const logo = getLogo();
+    if (logo) {
+      const sz = await imgSize(logo);
+      if (sz) {
+        const LH_ = 18, LW_ = 60;
+        const k = Math.min(LW_ / sz.w, LH_ / sz.h);
+        const w = sz.w * k, h = sz.h * k;
+        try {
+          doc.addImage(logo, /^data:image\/jpe?g/i.test(logo) ? 'JPEG' : 'PNG', M, y, w, h);
+          titleX = M + w + 6;
+          headH = Math.max(headH, h + 3);
+          baseY = y + h / 2 + 2;
+        } catch (_) {}
+      }
+    }
     doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-    doc.text(splitOk ? parts[0].replace(/:$/, '') : 'Report', M, y + 5);
+    doc.text(splitOk ? parts[0].replace(/:$/, '') : 'Report', titleX, baseY);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    doc.text(new Date().toLocaleDateString('it-IT'), W - M, y + 5, { align: 'right' });
-    y += 9;
+    doc.text(new Date().toLocaleDateString('it-IT'), W - M, baseY, { align: 'right' });
+    y += headH;
     doc.setLineWidth(0.6); doc.line(M, y, W - M, y);
     y += 5;
 
@@ -1021,7 +1118,21 @@
     const d = document.createElement('div');
     d.className = 'xp-print-date';
     d.textContent = new Date().toLocaleDateString('it-IT');
-    head.appendChild(h); head.appendChild(d);
+    const logo = getLogo();
+    if (logo) {
+      const brand = document.createElement('div');
+      brand.className = 'xp-print-brand';
+      const li = new Image();
+      li.className = 'xp-print-logo';
+      li.alt = '';
+      li.src = logo;
+      brand.appendChild(li); brand.appendChild(h);
+      head.classList.add('xp-print-head--logo');
+      head.appendChild(brand);
+    } else {
+      head.appendChild(h);
+    }
+    head.appendChild(d);
     area.appendChild(head);
 
     if (!splitOk) {
@@ -1243,6 +1354,8 @@
         try { localStorage.setItem(PRINT_SCONTO_KEY, chkSconto.checked ? '1' : '0'); } catch (_) {}
       });
     }
+
+    bindLogoUI();
 
     const b1 = el('btnPrint');
     if (b1) b1.addEventListener('click', () => stampa(false));
