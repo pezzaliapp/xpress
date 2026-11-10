@@ -547,7 +547,9 @@ let smartSettings = {
   hideVenduto: true,
   hideDiff: true,
   hideDiscounts: true,
-  showClientDiscount: false // flag "Sconto Cliente"
+  showClientDiscount: false, // flag "Sconto Cliente"
+  includeTrasporto: true,      // Trasporto conteggiato nel preventivo
+  includeInstallazione: true   // Installazione conteggiata nel preventivo
 };
 
 function loadSmartSettings() {
@@ -702,6 +704,8 @@ function bindSmartControls() {
   const elHideDiff = document.getElementById('toggleHideDiff');
   const elHideDiscounts = document.getElementById('toggleHideDiscounts');
   const elShowClientDiscount = document.getElementById('toggleShowClientDiscount');
+  const elIncTr = document.getElementById('toggleIncludiTrasporto');
+  const elIncIns = document.getElementById('toggleIncludiInstallazione');
 
   if (elSmart) elSmart.checked = !!smartSettings.smartMode;
   if (elVat) elVat.checked = !!smartSettings.showVAT;
@@ -710,6 +714,8 @@ function bindSmartControls() {
   if (elHideDiff) elHideDiff.checked = !!smartSettings.hideDiff;
   if (elHideDiscounts) elHideDiscounts.checked = !!smartSettings.hideDiscounts;
   if (elShowClientDiscount) elShowClientDiscount.checked = !!smartSettings.showClientDiscount;
+  if (elIncTr) elIncTr.checked = smartSettings.includeTrasporto !== false;
+  if (elIncIns) elIncIns.checked = smartSettings.includeInstallazione !== false;
 
   const onChange = () => {
     const prevClient = !!smartSettings.showClientDiscount;
@@ -724,6 +730,8 @@ function bindSmartControls() {
     smartSettings.hideDiff = !!elHideDiff?.checked;
     smartSettings.hideDiscounts = !!elHideDiscounts?.checked;
     smartSettings.showClientDiscount = !!elShowClientDiscount?.checked;
+    if (elIncTr) smartSettings.includeTrasporto = !!elIncTr.checked;
+    if (elIncIns) smartSettings.includeInstallazione = !!elIncIns.checked;
 
     // Se smart attivo: forza alcune scelte (e allinea le checkbox a video)
     if (smartSettings.smartMode) {
@@ -749,7 +757,7 @@ function bindSmartControls() {
     updateEquivalentDiscountDisplay();
   };
 
-  [elSmart, elVat, elVatRate, elHideVenduto, elHideDiff, elHideDiscounts, elShowClientDiscount]
+  [elSmart, elVat, elVatRate, elHideVenduto, elHideDiff, elHideDiscounts, elShowClientDiscount, elIncTr, elIncIns]
     .filter(Boolean)
     .forEach(el => el.addEventListener('change', onChange));
 }
@@ -1035,6 +1043,51 @@ function aggiungiArticoloDaListino() {
   updateEquivalentDiscountDisplay();
 }
 
+// -------------------- SERVIZI (TRASPORTO / INSTALLAZIONE) --------------------
+// Importi unitari dei servizi effettivamente conteggiati (rispetta le spunte
+// "Includi Trasporto/Installazione nel preventivo").
+function serviziArticolo(articolo) {
+  const tr = smartSettings.includeTrasporto === false ? 0 : Math.max(0, roundTwo(parseDec(articolo.costoTrasporto || 0)));
+  const ins = smartSettings.includeInstallazione === false ? 0 : Math.max(0, roundTwo(parseDec(articolo.costoInstallazione || 0)));
+  return { tr, ins };
+}
+
+// Righe servizi da stampare sotto un articolo: solo quelle con importo > 0
+function righeServiziArticolo(articolo, sep) {
+  const { tr, ins } = serviziArticolo(articolo);
+  const out = [];
+  if (tr > 0) out.push(`Trasporto${sep}${tr.toFixed(2)}€`);
+  if (ins > 0) out.push(`Installazione${sep}${ins.toFixed(2)}€`);
+  return out;
+}
+
+// Dicitura corretta in base a cosa è davvero incluso nel preventivo.
+// es. { inclusi: "incluso Trasporto", esclusi: "esclusa Installazione" }
+function descriviServizi(totTrasporto, totInstallazione) {
+  const hasTr = totTrasporto > 0, hasIns = totInstallazione > 0;
+  let inclusi = "", esclusi = "";
+  if (hasTr && hasIns) inclusi = "inclusi Trasporto e Installazione";
+  else if (hasTr) { inclusi = "incluso Trasporto"; esclusi = "esclusa Installazione"; }
+  else if (hasIns) { inclusi = "inclusa Installazione"; esclusi = "escluso Trasporto"; }
+  else esclusi = "esclusi Trasporto e Installazione";
+  const nomiInclusi = hasTr && hasIns ? "Trasporto e Installazione" : hasTr ? "Trasporto" : hasIns ? "Installazione" : "";
+  return { inclusi, esclusi, nomiInclusi, hasServizi: hasTr || hasIns };
+}
+
+// Righe di totale "Netto" / "Complessivo" con diciture coerenti
+function righeTotaliServizi(totaleSenzaServizi, totaleConServizi, totTr, totIns) {
+  const d = descriviServizi(totTr, totIns);
+  const out = [];
+  if (d.hasServizi) {
+    out.push(`Totale Netto (senza ${d.nomiInclusi}): ${totaleSenzaServizi.toFixed(2)}€`);
+    const nota = d.esclusi ? `${d.inclusi}, ${d.esclusi}` : d.inclusi;
+    out.push(`Totale Complessivo (${nota}): ${totaleConServizi.toFixed(2)}€`);
+  } else {
+    out.push(`Totale Netto (${d.esclusi}): ${totaleSenzaServizi.toFixed(2)}€`);
+  }
+  return out;
+}
+
 // -------------------- CALCOLI RIGA --------------------
 function computeRow(articolo) {
   const prezzoLordo = parseDec(articolo.prezzoLordo || 0);
@@ -1066,7 +1119,8 @@ function computeRow(articolo) {
     conMargineUnit = roundTwo(totaleNettoUnit / (1 - margine / 100));
   }
 
-  const serviziUnit = roundTwo(parseDec(articolo.costoTrasporto || 0) + parseDec(articolo.costoInstallazione || 0));
+  const servizi = serviziArticolo(articolo);
+  const serviziUnit = roundTwo(servizi.tr + servizi.ins);
   const granTotRiga = roundTwo((conMargineUnit + serviziUnit) * qta);
 
   const venduto = parseDec(articolo.venduto || 0);
@@ -1074,7 +1128,9 @@ function computeRow(articolo) {
 
   const nettoCadSmart = roundTwo(granTotRiga / qta);
 
-  return { sconto1, sconto2, totaleNettoUnit, conMargineUnit, qta, serviziUnit, granTotRiga, venduto, differenza, nettoCadSmart };
+  return { sconto1, sconto2, totaleNettoUnit, conMargineUnit, qta, serviziUnit,
+    trasportoUnit: servizi.tr, installazioneUnit: servizi.ins,
+    granTotRiga, venduto, differenza, nettoCadSmart };
 }
 
 // -------------------- TABELLA: RENDER 1 VOLTA + UPDATE CELLE --------------------
@@ -1255,6 +1311,7 @@ function aggiornaTotaliGenerali() {
   let totaleConServizi = 0;
   let totaleVenduto = 0;
   let totaleDifferenzaSconto = 0;
+  let totTr = 0, totIns = 0;
 
   articoliAggiunti.forEach(articolo => {
     const r = computeRow(articolo);
@@ -1262,9 +1319,11 @@ function aggiornaTotaliGenerali() {
     totaleConServizi += r.granTotRiga;
     totaleVenduto += r.venduto;
     totaleDifferenzaSconto += r.differenza;
+    totTr += r.trasportoUnit * r.qta;
+    totIns += r.installazioneUnit * r.qta;
   });
 
-  const imponibile = autoPopolaCosti ? roundTwo(totaleConServizi) : roundTwo(totaleSenzaServizi);
+  const imponibile = roundTwo(totaleConServizi);
   const vatRate = clamp(parseDec(smartSettings.vatRate ?? 22), 0, 100);
   const iva = roundTwo(imponibile * (vatRate / 100));
   const totaleIvato = roundTwo(imponibile + iva);
@@ -1281,12 +1340,16 @@ function aggiornaTotaliGenerali() {
 
   let html = "";
   if (!smart) {
-    html += `<strong>Totale Netto (senza Trasporto/Installazione):</strong> ${totaleSenzaServizi.toFixed(2)}€<br>`;
-    html += `<strong>Totale Complessivo (inclusi Trasporto/Installazione):</strong> ${totaleConServizi.toFixed(2)}€<br>`;
+    righeTotaliServizi(totaleSenzaServizi, totaleConServizi, totTr, totIns).forEach(riga => {
+      const i = riga.lastIndexOf(':');
+      html += `<strong>${riga.slice(0, i + 1)}</strong>${riga.slice(i + 1)}<br>`;
+    });
     html += `<strong>Totale Venduto:</strong> ${totaleVenduto.toFixed(2)}€<br>`;
     html += `<strong>Totale Differenza Sconto:</strong> ${totaleDifferenzaSconto.toFixed(2)}€`;
   } else {
-    html += `<strong>Imponibile:</strong> ${imponibile.toFixed(2)}€<br>`;
+    const d = descriviServizi(totTr, totIns);
+    const nota = [d.inclusi, d.esclusi].filter(Boolean).join(', ');
+    html += `<strong>Imponibile (${nota}):</strong> ${imponibile.toFixed(2)}€<br>`;
     if (smartSettings.showVAT) {
       html += `<strong>IVA (${vatRate.toFixed(1)}%):</strong> ${iva.toFixed(2)}€<br>`;
       html += `<strong>Totale + IVA:</strong> ${totaleIvato.toFixed(2)}€`;
@@ -1453,7 +1516,8 @@ function generaReportSmartCliente() {
   let imponibile = 0;
 
   const checkboxServizi = document.getElementById("toggleMostraServizi");
-  const mostraServizi = checkboxServizi && checkboxServizi.checked && autoPopolaCosti;
+  const mostraServizi = !checkboxServizi || checkboxServizi.checked;
+  let totTr = 0, totIns = 0;
 
   articoliAggiunti.forEach((articolo, index) => {
     const r = computeRow(articolo);
@@ -1463,6 +1527,8 @@ function generaReportSmartCliente() {
     const totRiga = r.granTotRiga;
 
     imponibile += totRiga;
+    totTr += r.trasportoUnit * qta;
+    totIns += r.installazioneUnit * qta;
 
     report += `${index + 1}) ${articolo.descrizione}\n`;
     report += `Codice: ${articolo.codice}\n`;
@@ -1470,13 +1536,8 @@ function generaReportSmartCliente() {
     report += `Netto/cad: ${nettoCad.toFixed(2)}€\n`;
 
     if (mostraServizi) {
-      const tr = roundTwo(parseDec(articolo.costoTrasporto || 0));
-      const ins = roundTwo(parseDec(articolo.costoInstallazione || 0));
-      if (tr !== 0 || ins !== 0) {
-        report += `Servizi:\n`;
-        report += `Trasporto ${tr.toFixed(2)}€\n`;
-        report += `Installazione ${ins.toFixed(2)}€\n`;
-      }
+      const righe = righeServiziArticolo(articolo, ' ');
+      if (righe.length) report += `Servizi:\n${righe.join('\n')}\n`;
     }
 
     report += `Totale riga: ${totRiga.toFixed(2)}€\n\n`;
@@ -1488,8 +1549,10 @@ function generaReportSmartCliente() {
   const iva = roundTwo(imponibile * (vatRate / 100));
   const totaleIvato = roundTwo(imponibile + iva);
 
+  const d = descriviServizi(totTr, totIns);
+
   report += `RIEPILOGO\n`;
-  report += `Imponibile: ${imponibile.toFixed(2)}€\n`;
+  report += `Imponibile (${[d.inclusi, d.esclusi].filter(Boolean).join(', ')}): ${imponibile.toFixed(2)}€\n`;
 
   if (smartSettings.showVAT) {
     report += `IVA (${vatRate.toFixed(1)}%): ${iva.toFixed(2)}€\n`;
@@ -1514,10 +1577,13 @@ function generaReportTesto() {
   mostraDettagliServizi = checkboxServizi && checkboxServizi.checked;
 
   const clientMode = !!smartSettings.showClientDiscount;
+  let totTr = 0, totIns = 0;
 
   articoliAggiunti.forEach((articolo, index) => {
     const r = computeRow(articolo);
 
+    totTr += r.trasportoUnit * r.qta;
+    totIns += r.installazioneUnit * r.qta;
     sommaDifferenze += r.differenza;
     totaleVenduto += r.venduto;
     totaleSenzaServizi += r.conMargineUnit * r.qta;
@@ -1538,9 +1604,8 @@ function generaReportTesto() {
 
     report += `Quantità: ${r.qta}\n`;
 
-    if (mostraDettagliServizi && autoPopolaCosti) {
-      report += `Trasporto: ${roundTwo(parseDec(articolo.costoTrasporto || 0)).toFixed(2)}€\n`;
-      report += `Installazione: ${roundTwo(parseDec(articolo.costoInstallazione || 0)).toFixed(2)}€\n`;
+    if (mostraDettagliServizi !== false) {
+      righeServiziArticolo(articolo, ': ').forEach(riga => { report += `${riga}\n`; });
     }
 
     report += `Totale: ${r.granTotRiga.toFixed(2)}€\n`;
@@ -1551,14 +1616,14 @@ function generaReportTesto() {
     report += `\n`;
   });
 
-  report += `Totale Netto (senza Trasporto/Installazione): ${totaleSenzaServizi.toFixed(2)}€\n`;
-  if (autoPopolaCosti) report += `Totale Complessivo (inclusi Trasporto/Installazione): ${totaleConServizi.toFixed(2)}€\n`;
+  righeTotaliServizi(roundTwo(totaleSenzaServizi), roundTwo(totaleConServizi), totTr, totIns)
+    .forEach(riga => { report += `${riga}\n`; });
 
   if (!smartSettings.hideVenduto) report += `Totale Venduto: ${totaleVenduto.toFixed(2)}€\n`;
   if (!smartSettings.hideDiff) report += `Totale Differenza Sconto: ${sommaDifferenze.toFixed(2)}€\n`;
 
   if (smartSettings.showVAT) {
-    const imponibile = autoPopolaCosti ? roundTwo(totaleConServizi) : roundTwo(totaleSenzaServizi);
+    const imponibile = roundTwo(totaleConServizi);
     const vatRate = clamp(parseDec(smartSettings.vatRate ?? 22), 0, 100);
     const iva = roundTwo(imponibile * (vatRate / 100));
     const totaleIvato = roundTwo(imponibile + iva);
@@ -1601,9 +1666,10 @@ function generaReportTestoSenzaMargine() {
   let totaleConServizi = 0;
 
   const checkboxServizi = document.getElementById("toggleMostraServizi");
-  const mostraServizi = checkboxServizi && checkboxServizi.checked;
+  const mostraServizi = !checkboxServizi || checkboxServizi.checked;
 
   const clientMode = !!smartSettings.showClientDiscount;
+  let totTr = 0, totIns = 0;
 
   articoliAggiunti.forEach((articolo, index) => {
     const prezzoLordo = parseDec(articolo.prezzoLordo || 0);
@@ -1620,9 +1686,11 @@ function generaReportTestoSenzaMargine() {
       prezzoNetto = roundTwo(prezzoLordo * (1 - sconto1 / 100) * (1 - sconto2 / 100));
     }
 
-    const granTotale =
-      (prezzoNetto + Math.max(0, parseDec(articolo.costoTrasporto || 0)) + Math.max(0, parseDec(articolo.costoInstallazione || 0)))
-      * quantita;
+    const servizi = serviziArticolo(articolo);
+    totTr += servizi.tr * quantita;
+    totIns += servizi.ins * quantita;
+
+    const granTotale = (prezzoNetto + servizi.tr + servizi.ins) * quantita;
 
     const granTotaleFinal = roundTwo(granTotale);
 
@@ -1644,19 +1712,18 @@ function generaReportTestoSenzaMargine() {
 
     report += `Quantità: ${quantita}\n`;
 
-    if (mostraServizi && autoPopolaCosti) {
-      report += `Trasporto: ${roundTwo(parseDec(articolo.costoTrasporto || 0)).toFixed(2)}€\n`;
-      report += `Installazione: ${roundTwo(parseDec(articolo.costoInstallazione || 0)).toFixed(2)}€\n`;
+    if (mostraServizi) {
+      righeServiziArticolo(articolo, ': ').forEach(riga => { report += `${riga}\n`; });
     }
 
     report += `Totale: ${granTotaleFinal.toFixed(2)}€\n\n`;
   });
 
-  report += `Totale Netto (senza Trasporto/Installazione): ${totaleSenzaServizi.toFixed(2)}€\n`;
-  if (autoPopolaCosti) report += `Totale Complessivo (inclusi Trasporto/Installazione): ${totaleConServizi.toFixed(2)}€\n`;
+  righeTotaliServizi(roundTwo(totaleSenzaServizi), roundTwo(totaleConServizi), totTr, totIns)
+    .forEach(riga => { report += `${riga}\n`; });
 
   if (smartSettings.showVAT) {
-    const imponibile = autoPopolaCosti ? roundTwo(totaleConServizi) : roundTwo(totaleSenzaServizi);
+    const imponibile = roundTwo(totaleConServizi);
     const vatRate = clamp(parseDec(smartSettings.vatRate ?? 22), 0, 100);
     const iva = roundTwo(imponibile * (vatRate / 100));
     const totaleIvato = roundTwo(imponibile + iva);

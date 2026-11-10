@@ -194,6 +194,57 @@ check('report smart: totale + IVA 2537.60', repSmart.includes('2537.60'));
 smartSettings.smartMode = false;
 smartSettings.showVAT = false;
 
+/* --- diciture servizi: solo ciò che è davvero incluso --- */
+function mkArt(tr, ins) {
+  return [{ codice: 'S1', descrizione: 'Servizi', prezzoLordo: 1000, sconto: 0, sconto2: 0, margine: 0,
+    costoTrasporto: tr, costoInstallazione: ins, quantita: 1, venduto: 0, scontoCliente: 0 }];
+}
+var allRep = () => [generaReportTesto(), generaReportTestoSenzaMargine()];
+smartSettings.smartMode = false; smartSettings.showVAT = true;
+smartSettings.includeTrasporto = true; smartSettings.includeInstallazione = true;
+
+articoliAggiunti = mkArt(100, 0);
+allRep().forEach((t, i) => {
+  check('solo trasporto ['+i+']: niente "Installazione"', !t.includes('Installazione:') && !t.includes('inclusi Trasporto e Installazione'), t);
+  check('solo trasporto ['+i+']: "incluso Trasporto, esclusa Installazione"', t.includes('incluso Trasporto, esclusa Installazione'), t);
+  check('solo trasporto ['+i+']: totale 1100', t.includes('1100.00'));
+  check('solo trasporto ['+i+']: imponibile IVA 1100', t.includes('Imponibile: 1100.00'));
+});
+
+articoliAggiunti = mkArt(0, 80);
+allRep().forEach((t, i) => {
+  check('solo installazione ['+i+']', t.includes('inclusa Installazione, escluso Trasporto') && !t.includes('Trasporto:'), t);
+});
+
+articoliAggiunti = mkArt(100, 80);
+check('entrambi: "inclusi Trasporto e Installazione"', generaReportTesto().includes('inclusi Trasporto e Installazione'));
+
+articoliAggiunti = mkArt(0, 0);
+allRep().forEach((t, i) => {
+  check('nessun servizio ['+i+']: niente "inclusi"', !/inclus/i.test(t) && t.includes('esclusi Trasporto e Installazione'), t);
+});
+
+// spunta "Includi Installazione" disattivata: costo presente ma escluso
+articoliAggiunti = mkArt(100, 80);
+smartSettings.includeInstallazione = false;
+var rx = generaReportTesto();
+check('installazione esclusa da spunta: non stampata', !rx.includes('Installazione: 80'), rx);
+check('installazione esclusa da spunta: totale 1100', rx.includes('Totale: 1100.00') && rx.includes('esclusa Installazione'), rx);
+check('installazione esclusa da spunta: computeRow', computeRow(articoliAggiunti[0]).granTotRiga === 1100);
+smartSettings.smartMode = true;
+var rs = generaReportTesto();
+check('smart: installazione esclusa', !rs.includes('Installazione 80') && rs.includes('incluso Trasporto, esclusa Installazione') && rs.includes('1100.00'), rs);
+smartSettings.smartMode = false; smartSettings.showVAT = false;
+smartSettings.includeInstallazione = true;
+
+// trasporto inserito a mano senza "Popola automaticamente": deve comparire
+autoPopolaCosti = false;
+articoliAggiunti = mkArt(100, 0);
+var rm = generaReportTesto();
+check('trasporto manuale senza auto-popola: mostrato e coerente', rm.includes('Trasporto: 100.00') && rm.includes('incluso Trasporto'), rm);
+autoPopolaCosti = true;
+articoliAggiunti = mkArt(50, 30);
+
 /* --- export TXT: comportamento Android-safe --- */
 var okTxt = downloadTextFile('report.txt', rep);
 var a = created.anchors[created.anchors.length - 1];
